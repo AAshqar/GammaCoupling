@@ -9,7 +9,7 @@ import time
 import gc
 
 from NeuronsSpecs.NeuronParams import *
-from NeuronsSpecs.NeuronsEqs import *
+from NeuronsSpecs.NeuronEqs import *
 
 #####################################################################################
 
@@ -789,9 +789,15 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=100
     Spike_t_Int_list = rawfile.root.SpikeM_t_Int_raw.read()
     Spike_i_Int_list = rawfile.root.SpikeM_i_Int_raw.read()
     
+    if comp_phase:
+        I_AMPA_Pyr_list = rawfile.root.IsynP_Pyr.read()
+        I_GABA_Pyr_list = rawfile.root.IsynI_Pyr.read()
+        I_AMPA_Int_list = rawfile.root.IsynP_Int.read()
+        I_GABA_Int_list = rawfile.root.IsynI_Int.read()
+        
     rawfile.close()
         
-    AvgCellRate_Pyr = np.zeros((len(PyrInps),len(IntInps)))
+    AvgCellRate_Pyr = np.zeros((len(IterArray1),len(IterArray2)))
     SynchFreq_Pyr = np.zeros_like(AvgCellRate_Pyr)
     SynchFreqPow_Pyr = np.zeros_like(AvgCellRate_Pyr)
     PkWidth_Pyr = np.zeros_like(AvgCellRate_Pyr)
@@ -995,8 +1001,8 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=100
                 if comp_phase:
         
                     # Pyr.:
-                    I_AMPA = rawfile.root.IsynP_Pyr/namp
-                    I_GABA = rawfile.root.IsynP_Pyr/namp
+                    I_AMPA = I_AMPA_Pyr_list[idx]/(1e-9)
+                    I_GABA = I_GABA_Pyr_list[idx]/(1e-9)
 
                     N = I_AMPA.shape[0]
                     NFFT = 2**(N-1).bit_length()
@@ -1013,8 +1019,8 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=100
                     PhaseShift_Pyr[pi,ii] = (phases[np.argmax(corr_sig)]*(sim_dt)*fpeak*360)
 
                     # Int.:
-                    I_AMPA = rawfile.root.IsynP_Int/namp
-                    I_GABA = rawfile.root.IsynP_Int/namp
+                    I_AMPA = I_AMPA_Int_list[idx]/(1e-9)
+                    I_GABA = I_GABA_Int_list[idx]/(1e-9)
 
                     N = I_AMPA.shape[0]
                     NFFT = 2**(N-1).bit_length()
@@ -1711,8 +1717,8 @@ def plot_spcgram_grid(rawfile, mode, start_time=200, end_time=1000, W=2**12, ws=
 
     if not (out_file is None):
         figure(1)
-        savefig(out_file+'_Pyr')
+        savefig(out_file+'_Pyr.png')
         figure(2)
-        savefig(out_file+'_Int')
+        savefig(out_file+'_Int.png')
     
     show()
