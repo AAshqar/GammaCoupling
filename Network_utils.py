@@ -9,7 +9,7 @@ import time
 import gc
 
 from NeuronsSpecs.NeuronParams import *
-from NeuronsSpecs.NeuronsEqs import *
+from NeuronsSpecs.NeuronEqs import *
 
 #####################################################################################
 
@@ -197,6 +197,7 @@ def run_network_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
         plot(PopRateM_Pyr.t/ms, PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms), PopRateM_Int.t/ms, PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
         xlabel('Time (ms)')
         xlim(PopRateM_Pyr.t[0]/ms, PopRateM_Pyr.t[-1]/ms)
+        ylabel('Neuron Index')
         show()
     
     if monitored_Pyr==[]:
@@ -768,7 +769,7 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
 #####################################################################################
 
 
-def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=1000, sim_dt=0.02, comp_phase=False, mts_win='whole', W=2**12, ws=(2**12)/10, PlotFlag=False, out_file=None):
+def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=1000, sim_dt=0.02, comp_phase=False, mts_win='whole', W=2**12, ws=(2**12)/10, verbose=False, PlotFlag=False, plot_file=None, out_file=None):
     
     sim_dt *= ms
     
@@ -789,9 +790,15 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=100
     Spike_t_Int_list = rawfile.root.SpikeM_t_Int_raw.read()
     Spike_i_Int_list = rawfile.root.SpikeM_i_Int_raw.read()
     
+    if comp_phase:
+        I_AMPA_Pyr_list = rawfile.root.IsynP_Pyr.read()
+        I_GABA_Pyr_list = rawfile.root.IsynI_Pyr.read()
+        I_AMPA_Int_list = rawfile.root.IsynP_Int.read()
+        I_GABA_Int_list = rawfile.root.IsynI_Int.read()
+        
     rawfile.close()
         
-    AvgCellRate_Pyr = np.zeros((len(PyrInps),len(IntInps)))
+    AvgCellRate_Pyr = np.zeros((len(IterArray1),len(IterArray2)))
     SynchFreq_Pyr = np.zeros_like(AvgCellRate_Pyr)
     SynchFreqPow_Pyr = np.zeros_like(AvgCellRate_Pyr)
     PkWidth_Pyr = np.zeros_like(AvgCellRate_Pyr)
@@ -808,6 +815,9 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=100
     
     for pi,IterItem1 in enumerate(IterArray1):
         for ii,IterItem2 in enumerate(IterArray2):
+            
+            if verbose:
+                print('Analyzing network %d/%d...' %(pi*len(IterArray2)+ii+1, len(IterArray1)*len(IterArray2)))
             
             idx = pi*len(IterArray2)+ii
             
@@ -990,48 +1000,77 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=100
                     SynchMeasure_Int[pi,ii] = float('nan')
                 else:
                     SynchMeasure_Int[pi,ii] = (corr_sig[0] - mintab[0,1])
+            
                     
-                    
-                if comp_phase:
+            if comp_phase:
         
-                    # Pyr.:
-                    I_AMPA = rawfile.root.IsynP_Pyr/namp
-                    I_GABA = rawfile.root.IsynP_Pyr/namp
+                # Pyr.:
+                I_AMPA = I_AMPA_Pyr_list[idx]/(1e-9)
+                I_GABA = I_GABA_Pyr_list[idx]/(1e-9)
 
-                    N = I_AMPA.shape[0]
-                    NFFT = 2**(N-1).bit_length()
-                    freq_vect = np.linspace(0, fmax/Hz, NFFT/2)*Hz
-                    freq_vect = freq_vect[np.where(freq_vect/Hz<=300)]
-                    a = pmtm(RateSig_Pyr, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                    I_MTS = np.mean(abs(a[0])**2 * a[1], axis=0)[:int(NFFT/2)]
-                    I_MTS = I_MTS[np.where(freq_vect/Hz<=300)]
-                    fpeak = freq_vect[np.argmax(I_MTS)]
+                N = I_AMPA.shape[0]
+                NFFT = 2**(N-1).bit_length()
+                freq_vect = np.linspace(0, fmax/Hz, NFFT/2)*Hz
+                freq_vect = freq_vect[np.where(freq_vect/Hz<=300)]
+                a = pmtm(RateSig_Pyr, NFFT=NFFT, NW=2.5, method='eigen', show=False)
+                I_MTS = np.mean(abs(a[0])**2 * a[1], axis=0)[:int(NFFT/2)]
+                I_MTS = I_MTS[np.where(freq_vect/Hz<=300)]
+                fpeak = freq_vect[np.argmax(I_MTS)]
 
-                    corr_sig = np.correlate(I_AMPA, I_GABA, mode='full')
-                    phases = np.arange(1-N, N)
+                corr_sig = np.correlate(I_AMPA, I_GABA, mode='full')
+                phases = np.arange(1-N, N)
 
-                    PhaseShift_Pyr[pi,ii] = (phases[np.argmax(corr_sig)]*(sim_dt)*fpeak*360)
+                PhaseShift_Pyr[pi,ii] = (phases[np.argmax(corr_sig)]*(sim_dt)*fpeak*360)
 
-                    # Int.:
-                    I_AMPA = rawfile.root.IsynP_Int/namp
-                    I_GABA = rawfile.root.IsynP_Int/namp
+                # Int.:
+                I_AMPA = I_AMPA_Int_list[idx]/(1e-9)
+                I_GABA = I_GABA_Int_list[idx]/(1e-9)
 
-                    N = I_AMPA.shape[0]
-                    NFFT = 2**(N-1).bit_length()
-                    freq_vect = np.linspace(0, fmax/Hz, NFFT/2)*Hz
-                    freq_vect = freq_vect[np.where(freq_vect/Hz<=300)]
-                    a = pmtm(RateSig_Pyr, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                    I_MTS = np.mean(abs(a[0])**2 * a[1], axis=0)[:int(NFFT/2)]
-                    I_MTS = I_MTS[np.where(freq_vect/Hz<=300)]
-                    fpeak = freq_vect[np.argmax(I_MTS)]
+                N = I_AMPA.shape[0]
+                NFFT = 2**(N-1).bit_length()
+                freq_vect = np.linspace(0, fmax/Hz, NFFT/2)*Hz
+                freq_vect = freq_vect[np.where(freq_vect/Hz<=300)]
+                a = pmtm(RateSig_Pyr, NFFT=NFFT, NW=2.5, method='eigen', show=False)
+                I_MTS = np.mean(abs(a[0])**2 * a[1], axis=0)[:int(NFFT/2)]
+                I_MTS = I_MTS[np.where(freq_vect/Hz<=300)]
+                fpeak = freq_vect[np.argmax(I_MTS)]
 
-                    corr_sig = np.correlate(I_AMPA, I_GABA, mode='full')
-                    phases = np.arange(1-N, N)
+                corr_sig = np.correlate(I_AMPA, I_GABA, mode='full')
+                phases = np.arange(1-N, N)
 
-                    PhaseShift_Int[pi,ii] = (phases[np.argmax(corr_sig)]*(sim_dt)*fpeak*360)
-    
+                PhaseShift_Int[pi,ii] = (phases[np.argmax(corr_sig)]*(sim_dt)*fpeak*360)
+
+    if not (out_file is None):
+        with tables.open_file(out_file+'.hf5', mode='w', title='Analysis') as h5file:
+            root = h5file.root
+            h5file.create_carray(root, "AvgCellRate_Pyr", obj=AvgCellRate_Pyr)
+            h5file.create_carray(root, "SynchFreq_Pyr", obj=SynchFreq_Pyr)
+            h5file.create_carray(root, "SynchFreqPow_Pyr", obj=SynchFreqPow_Pyr)
+            h5file.create_carray(root, "PkWidth_Pyr", obj=PkWidth_Pyr)
+            h5file.create_carray(root, "Harmonics_Pyr", obj=Harmonics_Pyr)
+            h5file.create_carray(root, "SynchMeasure_Pyr", obj=SynchMeasure_Pyr)
+            h5file.create_carray(root, "AvgCellRate_Int", obj=AvgCellRate_Int)
+            h5file.create_carray(root, "SynchFreq_Int", obj=SynchFreq_Int)
+            h5file.create_carray(root, "SynchFreqPow_Int", obj=SynchFreqPow_Int)
+            h5file.create_carray(root, "PkWidth_Int", obj=PkWidth_Int)
+            h5file.create_carray(root, "Harmonics_Int", obj=Harmonics_Int)
+            h5file.create_carray(root, "SynchMeasure_Int", obj=SynchMeasure_Int)
+            h5file.create_carray(root, "IterArray1", obj=IterArray1)
+            h5file.create_carray(root, "IterArray2", obj=IterArray2)
+            if comp_phase:
+                h5file.create_carray(root, "PhaseShift_Pyr", obj=PhaseShift_Pyr)
+                h5file.create_carray(root, "PhaseShift_Int", obj=PhaseShift_Int)
+
+        if verbose:
+            print('Saved analysis results successfully!')
+                
     if PlotFlag:
-        plot_results(AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, PhaseShift_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int, PhaseShift_Int, IterArray1, IterArray2, mode, out_file)
+        plot_results(IterArray1, IterArray2, mode, AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int, PhaseShift_Pyr, PhaseShift_Int, plot_file)
+        
+    if comp_phase:
+        return AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int, PhaseShift_Pyr, PhaseShift_Int
+    else:
+        return AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int
     
 #####################################################################################
 
@@ -1711,8 +1750,8 @@ def plot_spcgram_grid(rawfile, mode, start_time=200, end_time=1000, W=2**12, ws=
 
     if not (out_file is None):
         figure(1)
-        savefig(out_file+'_Pyr')
+        savefig(out_file+'_Pyr.png')
         figure(2)
-        savefig(out_file+'_Int')
+        savefig(out_file+'_Int.png')
     
     show()
