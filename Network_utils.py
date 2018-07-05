@@ -1042,8 +1042,8 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=100
                     corr_sig = np.correlate(I_AMPA, I_GABA, mode='full')
                     phases = np.arange(1-N, N)
 
-                    PhaseShift_Pyr = (phases[np.argmax(corr_sig)]*(sim_dt)*fpeak*360)
-                    PhaseShift_Pyr[pi,ii] = np.sign(PhaseShift_Pyr)*(PhaseShift_Pyr%360)
+                    PhaseShift = (phases[np.argmax(corr_sig)]*(sim_dt)*fpeak*360)
+                    PhaseShift_Pyr[pi,ii] = np.sign(PhaseShift)*(PhaseShift%360)
 
                 # Int.:
                 if np.max(RateMTS_Int)==0:
@@ -1068,8 +1068,8 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=100
                     corr_sig = np.correlate(I_AMPA, I_GABA, mode='full')
                     phases = np.arange(1-N, N)
 
-                    PhaseShift_Int = (phases[np.argmax(corr_sig)]*(sim_dt)*fpeak*360)
-                    PhaseShift_Int[pi,ii] = np.sign(PhaseShift_Int)*(PhaseShift_Int%360)
+                    PhaseShift = (phases[np.argmax(corr_sig)]*(sim_dt)*fpeak*360)
+                    PhaseShift_Int[pi,ii] = np.sign(PhaseShift)*(PhaseShift%360)
 
     if not (out_file is None):
         with tables.open_file(out_file+'.hf5', mode='w', title='Analysis') as h5file:
