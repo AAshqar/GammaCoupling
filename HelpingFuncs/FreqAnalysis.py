@@ -1,6 +1,6 @@
 from spectrum import pmtm
 
-def comp_mtspectrogram(Signal, fs, W, ws=None, NFFT=None, freq_limit=None, normalize=True, NW=2.5 PlotFlag=True):
+def comp_mtspectrogram(Signal, fs, W, ws=None, NFFT=None, freq_limit=None, normalize=True, NW=2.5, PlotFlag=True):
     
     N = int(len(Signal))
     T = N/fs
