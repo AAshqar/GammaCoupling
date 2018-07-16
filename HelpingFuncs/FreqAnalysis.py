@@ -1,6 +1,6 @@
 from spectrum import pmtm
-from numy import np
-from matplotlib.pyplot import plt
+import numpy as np
+import matplotlib.pyplot as plt
 
 def comp_mtspectrogram(Signal, fs, W, ws=None, NFFT=None, freq_limit=None, normalize=True, NW=2.5, PlotFlag=True):
     
