@@ -1,4 +1,6 @@
 from spectrum import pmtm
+from numy import np
+from matplotlib.pyplot import plt
 
 def comp_mtspectrogram(Signal, fs, W, ws=None, NFFT=None, freq_limit=None, normalize=True, NW=2.5, PlotFlag=True):
     
@@ -34,12 +36,12 @@ def comp_mtspectrogram(Signal, fs, W, ws=None, NFFT=None, freq_limit=None, norma
         Signal_MTS = np.squeeze(result)
     
     if PlotFlag:
-        figure(figsize=[10,10])
-        imshow(Signal_MTS, origin="lower", extent=[0, T, freq_vect[0], freq_vect[-1]], aspect="auto", cmap='jet') 
-        xlabel('Time (ms)')
-        ylabel('Frequency (Hz)')
-        title('Multitaper Spectrogram')
+        plt.figure(figsize=[10,10])
+        plt.imshow(Signal_MTS, origin="lower", extent=[0, T, freq_vect[0], freq_vect[-1]], aspect="auto", cmap='jet') 
+        plt.xlabel('Time (ms)')
+        plt.ylabel('Frequency (Hz)')
+        plt.title('Multitaper Spectrogram')
 
-        show()
+        plt.show()
     
     return Signal_MTS
