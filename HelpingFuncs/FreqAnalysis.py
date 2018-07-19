@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 def comp_mtspectrogram(Signal, fs, W, ws=None, NFFT=None, freq_limit=None, normalize=True, NW=2.5, PlotFlag=True):
     
     N = int(len(Signal))
-    T = N/fs
+    T = (N/fs)*1000
     
     if normalize:
         Signal -= np.mean(Signal)
@@ -31,7 +31,7 @@ def comp_mtspectrogram(Signal, fs, W, ws=None, NFFT=None, freq_limit=None, norma
         result[:,i] = Sks[:NFFT/2]/W
         
     if not freq_limit is None:
-        Signal_MTS = np.squeeze(result[np.where(freq_vect/Hz<=300),:])
+        Signal_MTS = np.squeeze(result[np.where(freq_vect<=300),:])
     else:
         Signal_MTS = np.squeeze(result)
     
