@@ -40,9 +40,10 @@ def findpeaks(xarray, x_mindist=5., maxima_minval=0., minima=False, minima_maxva
             closepks = filter(lambda x: x[0] not in skip_pks, closepks)
             skip_pks = np.append(skip_pks, [closepk[0] for closepk in closepks])
             closepks = np.array([closepk[1] for closepk in closepks])
-            closepks_dists = np.array(abs(closepks-mxind))            
-            max_inds_filt.append(closepks[np.argmin(closepks_dists)])
-            skip_pks = np.delete(skip_pks, np.argmin(closepks_dists))
+            closepks_dists = np.array(abs(closepks-mxind))
+            winnerpk = closepks[np.argmin(closepks_dists)]
+            max_inds_filt.append(winnerpk)
+            skip_pks = np.array(filter(lambda x: max_inds[int(x)] != winnerpk, skip_pks))
         
         if minima:
             skip_pks = np.empty([0])
@@ -55,9 +56,10 @@ def findpeaks(xarray, x_mindist=5., maxima_minval=0., minima=False, minima_maxva
                 skip_pks = np.append(skip_pks, [closepk[0] for closepk in closepks])
                 closepks = np.array([closepk[1] for closepk in closepks])
                 closepks_dists = np.array(abs(closepks-mnind))
-                min_inds_filt.append(closepks[np.argmin(closepks_dists)])
-                skip_pks = np.delete(skip_pks, np.argmin(closepks_dists))
-    
+                winnerpk = closepks[np.argmin(closepks_dists)]
+                min_inds_filt.append(winnerpk)
+                skip_pks = np.array(filter(lambda x: min_inds[int(x)] != winnerpk, skip_pks))
+
     if minima:
         return np.array(max_inds_filt), np.array(min_inds_filt)
     else:
@@ -129,24 +131,27 @@ def findpeaks2D(xmatrix, x_mindist=0., y_mindist=0., xy_mindist=0, maxima_minval
                 skip_pks = np.append(skip_pks, [closepk[0] for closepk in closepks])
                 closepks = np.array([closepk[1] for closepk in closepks])
                 closepks_dists = np.array(abs(closepks[:,0]-mxind[0]))            
-                max_inds_filt.append(closepks[np.argmin(closepks_dists),:])
-                skip_pks = np.delete(skip_pks, np.argmin(closepks_dists), axis=0)
+                winnerpk = closepks[np.argmin(closepks_dists),:]
+                max_inds_filt.append(winnerpk)
+                skip_pks = np.array(filter(lambda x: max_inds[int(x),:] != winnerpk, skip_pks))
             if y_mindist>0:
                 closepks = filter(lambda x: abs(x[1][1]-mxind[1])<x_mindist, enumerate(max_inds))
                 closepks = filter(lambda x: x[0] not in skip_pks, closepks)
                 skip_pks = np.append(skip_pks, [closepk[0] for closepk in closepks])
                 closepks = np.array([closepk[1] for closepk in closepks])
                 closepks_dists = np.array(abs(closepks[:,1]-mxind[1]))
-                max_inds_filt.append(closepks[np.argmin(closepks_dists),:])
-                skip_pks = np.delete(skip_pks, np.argmin(closepks_dists), axis=0)
+                winnerpk = closepks[np.argmin(closepks_dists),:]
+                max_inds_filt.append(winnerpk)
+                skip_pks = np.array(filter(lambda x: max_inds[int(x),:] != winnerpk, skip_pks))
             if xy_mindist>0:
                 closepks = filter(lambda x: abs(np.linalg.norm(x[1]-mxind))<xy_mindist, enumerate(max_inds))
                 closepks = filter(lambda x: x[0] not in skip_pks, closepks)
                 skip_pks = np.append(skip_pks, [closepk[0] for closepk in closepks])
                 closepks = np.array([closepk[1] for closepk in closepks])
                 closepks_dists = np.linalg.norm(closepks-mxind, axis=1)
-                max_inds_filt.append(closepks[np.argmin(closepks_dists),:])
-                skip_pks = np.delete(skip_pks, np.argmin(closepks_dists), axis=0)
+                winnerpk = closepks[np.argmin(closepks_dists),:]
+                max_inds_filt.append(winnerpk)
+                skip_pks = np.array(filter(lambda x: max_inds[int(x),:] != winnerpk, skip_pks))
         
         if minima:
             skip_pks = np.empty([0])
@@ -160,24 +165,27 @@ def findpeaks2D(xmatrix, x_mindist=0., y_mindist=0., xy_mindist=0, maxima_minval
                     skip_pks = np.append(skip_pks, [closepk[0] for closepk in closepks])
                     closepks = np.array([closepk[1] for closepk in closepks])
                     closepks_dists = np.array(abs(closepks[:,0]-mnind[0]))            
-                    min_inds_filt.append(closepks[np.argmin(closepks_dists),:])
-                    skip_pks = np.delete(skip_pks, np.argmin(closepks_dists), axis=0)
+                    winnerpk = closepks[np.argmin(closepks_dists),:]
+                    min_inds_filt.append(winnerpk)
+                    skip_pks = np.array(filter(lambda x: min_inds[int(x),:] != winnerpk, skip_pks))
                 if y_mindist>0:
                     closepks = filter(lambda x: abs(x[1][1]-mnind[1])<x_mindist, enumerate(min_inds))
                     closepks = filter(lambda x: x[0] not in skip_pks, closepks)
                     skip_pks = np.append(skip_pks, [closepk[0] for closepk in closepks])
                     closepks = np.array([closepk[1] for closepk in closepks])
                     closepks_dists = np.array(abs(closepks[:,1]-mnind[1]))
-                    min_inds_filt.append(closepks[np.argmin(closepks_dists),:])
-                    skip_pks = np.delete(skip_pks, np.argmin(closepks_dists), axis=0)
+                    winnerpk = closepks[np.argmin(closepks_dists),:]
+                    min_inds_filt.append(winnerpk)
+                    skip_pks = np.array(filter(lambda x: min_inds[int(x),:] != winnerpk, skip_pks))
                 if xy_mindist>0:
                     closepks = filter(lambda x: abs(np.linalg.norm(x[1]-mnind))<xy_mindist, enumerate(min_inds))
                     closepks = filter(lambda x: x[0] not in skip_pks, closepks)
                     skip_pks = np.append(skip_pks, [closepk[0] for closepk in closepks])
                     closepks = np.array([closepk[1] for closepk in closepks])
                     closepks_dists = np.linalg.norm(closepks-mnind, axis=1)
-                    min_inds_filt.append(closepks[np.argmin(closepks_dists),:])
-                    skip_pks = np.delete(skip_pks, np.argmin(closepks_dists), axis=0)
+                    winnerpk = closepks[np.argmin(closepks_dists),:]
+                    min_inds_filt.append(winnerpk)
+                    skip_pks = np.array(filter(lambda x: min_inds[int(x),:] != winnerpk, skip_pks))
     
     if minima:
         return np.array(max_inds_filt), np.array(min_inds_filt)
