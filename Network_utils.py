@@ -527,7 +527,7 @@ def analyze_network(SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, StateM_P
 #####################################################################################
 
 
-def comp_mtspectrogram(PopRateM_Pyr, PopRateM_Int, W=2**12, ws=None, start_time=0, end_time=1000, sim_dt=0.02, PlotFlag=True):
+def comp_mtspectrogramM(PopRateM_Pyr, PopRateM_Int, W=2**12, ws=None, start_time=0, end_time=1000, sim_dt=0.02, PlotFlag=True):
     
     sim_dt *= ms
     
@@ -588,6 +588,11 @@ def comp_mtspectrogram(PopRateM_Pyr, PopRateM_Int, W=2**12, ws=None, start_time=
 
 
 def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInps=[0.5,1], IntInps=[0.5,1], PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, start_time=200, end_time=1000, sim_dt=0.02, monitored=[], mon_avg=True, comp_phase=False, record_vm=True, mts_win='whole', W=2**12, ws=None, verbose=True, analyze=True, save_analyzed=False, save_raw=False, filename=None):
+    
+    if not any((type(PyrInps) is list, type(PyrInps) is np.ndarray)):
+        PyrInps = [PyrInps]
+    if not any((type(IntInps) is list, type(IntInps) is np.ndarray)):
+        IntInps = [IntInps]
     
     if ws is None:
         ws = W/10
@@ -721,6 +726,11 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
 
 
 def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInp=1, IntInp=1, IPois_As=[1.], IPois_Atype='ramp', IPois_fs=[70], PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, start_time=200, end_time=1000, sim_dt=0.02, monitored=[], mon_avg=True, record_vm=True, mts_win='whole', W=2**12, ws=None, verbose=True, analyze=True, save_analyzed=False, save_raw=False, filename=None):
+    
+    if not any((type(IPois_As) is list, type(IPois_As) is np.ndarray)):
+        IPois_As = [IPois_As]
+    if not any((type(IPois_fs) is list, type(IPois_fs) is np.ndarray)):
+        IPois_fs = [IPois_fs]
     
     if ws is None:
         ws = W/10

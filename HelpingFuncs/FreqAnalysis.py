@@ -36,7 +36,7 @@ def comp_mtspectrogram(Signal, fs, W, ws=None, NFFT=None, freq_limit=None, norma
         Signal_MTS = np.squeeze(result)
     
     if PlotFlag:
-        plt.figure(figsize=[10,10])
+        plt.figure(figsize=[10,5])
         plt.imshow(Signal_MTS, origin="lower", extent=[0, T, freq_vect[0], freq_vect[-1]], aspect="auto", cmap='jet') 
         plt.xlabel('Time (ms)')
         plt.ylabel('Frequency (Hz)')
