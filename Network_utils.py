@@ -692,6 +692,8 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
                     PhaseShift_Pyr[pi,ii], PhaseShift_Int[pi,ii] = Network_feats['PhaseShift_Pyr'], Network_feats['PhaseShift_Int']
                 
             if save_raw:
+                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int']
+                
                 Params.append(str((PyrInp, IntInp)))
                 SpikeM_t_Pyr_raw.append(np.array(SpikeM_Pyr.t/ms)*ms)
                 SpikeM_i_Pyr_raw.append(np.array(SpikeM_Pyr.i))
@@ -700,6 +702,8 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
                 PopRateSig_Pyr_raw.append(PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms))
                 PopRateSig_Int_raw.append(PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
                 if not monitored==[]:
+                    StateM_Pyr, StateM_Int = Monitors['StateM_Pyr'], Monitors['StateM_Int']
+
                     for i,var in enumerate(monitored): 
                         if mon_avg:
                             locals()[var+'_Pyr'].append(np.array(StateM_Pyr.get_states()[var]).mean(axis=1))
@@ -846,6 +850,8 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
                     PhaseShift_Pyr[pi,ii], PhaseShift_Int[pi,ii] = Network_feats['PhaseShift_Pyr'], Network_feats['PhaseShift_Int']
                 
             if save_raw:
+                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int']
+                
                 Params.append(str((PyrInp, IntInp)))
                 SpikeM_t_Pyr_raw.append(np.array(SpikeM_Pyr.t/ms)*ms)
                 SpikeM_i_Pyr_raw.append(np.array(SpikeM_Pyr.i))
@@ -854,6 +860,8 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
                 PopRateSig_Pyr_raw.append(PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms))
                 PopRateSig_Int_raw.append(PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
                 if not monitored==[]:
+                    StateM_Pyr, StateM_Int = Monitors['StateM_Pyr'], Monitors['StateM_Int']
+                    
                     for i,var in enumerate(monitored): 
                         if mon_avg:
                             locals()[var+'_Pyr'].append(np.array(StateM_Pyr.get_states()[var]).mean(axis=1))
