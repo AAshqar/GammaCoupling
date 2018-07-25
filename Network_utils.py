@@ -129,10 +129,15 @@ def run_network(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
         xlim(PopRateM_Pyr.t[0]/ms, PopRateM_Pyr.t[-1]/ms)
         show()
     
-    if monitored_Pyr==[]:
-        return SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int
-    else:
-        return SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, StateM_Pyr, StateM_Int
+    Monitors = {'SpikeM_Pyr':SpikeM_Pyr,
+                'PopRateM_Pyr':PopRateM_Pyr,
+                'SpikeM_Int':SpikeM_Int,
+                'PopRateM_Int':PopRateM_Int}
+    if not monitored_Pyr==[]:
+        Monitors['StateM_Pyr'] = StateM_Pyr
+        Monitors['StateM_Int'] = StateM_Int
+        
+    return Monitors
     
 #####################################################################################
 
@@ -264,16 +269,23 @@ def run_network_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
         ylabel('Neuron Index')
         show()
     
-    if monitored_Pyr==[]:
-        return SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int
-    else:
-        return SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, StateM_Pyr, StateM_Int
+    Monitors = {'SpikeM_Pyr':SpikeM_Pyr,
+                'PopRateM_Pyr':PopRateM_Pyr,
+                'SpikeM_Int':SpikeM_Int,
+                'PopRateM_Int':PopRateM_Int}
+    if not monitored_Pyr==[]:
+        Monitors['StateM_Pyr'] = StateM_Pyr
+        Monitors['StateM_Int'] = StateM_Int
+        
+    return Monitors
     
 #####################################################################################
 
 
-def analyze_network(SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, StateM_Pyr=None, StateM_Int=None, comp_phase=False, N_p=4000, N_i=1000, start_time=200, end_time=1000, sim_dt=0.02, mts_win='whole', W=2**12, ws=None, PlotFlag=False):
+def analyze_network(Monitors, comp_phase=False, N_p=4000, N_i=1000, start_time=200, end_time=1000, sim_dt=0.02, mts_win='whole', W=2**12, ws=None, PlotFlag=False):
 
+    SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int']
+    
     sim_dt *= ms
     
     if ws is None:
@@ -455,6 +467,8 @@ def analyze_network(SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, StateM_P
     
     if comp_phase:
         
+        StateM_Pyr, StateM_Int = Monitors['StateM_Pyr'], Monitors['StateM_Int']
+        
         # Pyr.:
         I_AMPA = np.mean(StateM_Pyr.get_states()['IsynP'], axis=1)/namp
         I_AMPA = I_AMPA[int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
@@ -519,15 +533,30 @@ def analyze_network(SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, StateM_P
         title('Pop. Spectrum (Int)')
         show()
 
+    Network_feats = {'AvgCellRate_Pyr':AvgCellRate_Pyr,
+                     'SynchFreq_Pyr':SynchFreq_Pyr,
+                     'SynchFreqPow_Pyr':SynchFreqPow_Pyr,
+                     'PkWidth_Pyr':PkWidth_Pyr,
+                     'Harmonics_Pyr':Harmonics_Pyr,
+                     'SynchMeasure_Pyr':SynchMeasure_Pyr,
+                     'AvgCellRate_Int':AvgCellRate_Int,
+                     'SynchFreq_Int':SynchFreq_Int,
+                     'SynchFreqPow_Int':SynchFreqPow_Int,
+                     'PkWidth_Int':PkWidth_Int,
+                     'Harmonics_Int':Harmonics_Int,
+                     'SynchMeasure_Int':SynchMeasure_Int}
     if comp_phase:
-        return AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int, PhaseShift_Pyr, PhaseShift_Int
-    else:
-        return AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int
+        Network_feats['PhaseShift_Pyr'] = PhaseShift_Pyr
+        Network_feats['PhaseShift_Int'] = PhaseShift_Int
+            
+    return Network_feats
     
 #####################################################################################
 
 
-def comp_mtspectrogramM(PopRateM_Pyr, PopRateM_Int, W=2**12, ws=None, start_time=0, end_time=1000, sim_dt=0.02, PlotFlag=True):
+def Monitors_mtspectrogram(Monitors, W=2**12, ws=None, start_time=0, end_time=1000, sim_dt=0.02, PlotFlag=True):
+    
+    PopRateM_Pyr, PopRateM_Int = Monitors['PopRateM_Pyr'], Monitors['PopRateM_Int']
     
     sim_dt *= ms
     
@@ -582,7 +611,7 @@ def comp_mtspectrogramM(PopRateM_Pyr, PopRateM_Int, W=2**12, ws=None, start_time
         title('Spectrogram (Int.)')
         show()
     
-    return RateMTS_Pyr, RateMTS_Int
+    return {'RateMTS_Pyr':RateMTS_Pyr, 'RateMTS_Int':RateMTS_Int}
     
 #####################################################################################
 
@@ -652,16 +681,15 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
             
             gc.collect()
             
-            if monitored==[] and not record_vm:
-                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int = run_network(N_p=N_p, N_i=N_i, PyrEqs=PyrEqs, IntEqs=IntEqs, PreEqAMPA=PreEqAMPA, PreEqGABA=PreEqGABA, PyrInp=PyrInp, IntInp=IntInp, PP_C=PP_C, IP_C=IP_C, II_C=II_C, PI_C=PI_C, runtime=runtime, sim_dt=sim_dt, monitored=[], verbose=verbose, PlotFlag=False)
-            else:
-                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, StateM_Pyr, StateM_Int = run_network(N_p=N_p, N_i=N_i, PyrEqs=PyrEqs, IntEqs=IntEqs, PreEqAMPA=PreEqAMPA, PreEqGABA=PreEqGABA, PyrInp=PyrInp, IntInp=IntInp, PP_C=PP_C, IP_C=IP_C, II_C=II_C, PI_C=PI_C, runtime=runtime, sim_dt=sim_dt, monitored=monitored, record_vm=record_vm, verbose=verbose, PlotFlag=False)
+            Monitors = run_network(N_p=N_p, N_i=N_i, PyrEqs=PyrEqs, IntEqs=IntEqs, PreEqAMPA=PreEqAMPA, PreEqGABA=PreEqGABA, PyrInp=PyrInp, IntInp=IntInp, PP_C=PP_C, IP_C=IP_C, II_C=II_C, PI_C=PI_C, runtime=runtime, sim_dt=sim_dt, monitored=monitored, record_vm=record_vm, verbose=verbose, PlotFlag=False)
             
             if analyze:
+                Network_feats = analyze_network(Monitors, comp_phase=comp_phase, N_p=N_p, N_i=N_i, start_time=start_time, end_time=end_time, sim_dt=sim_dt, mts_win=mts_win, W=W, ws=ws)
+                
+                AvgCellRate_Pyr[pi,ii], SynchFreq_Pyr[pi,ii], SynchFreqPow_Pyr[pi,ii], PkWidth_Pyr[pi,ii], Harmonics_Pyr[pi,ii], SynchMeasure_Pyr[pi,ii], AvgCellRate_Int[pi,ii], SynchFreq_Int[pi,ii], SynchFreqPow_Int[pi,ii], PkWidth_Int[pi,ii], Harmonics_Int[pi,ii], SynchMeasure_Int[pi,ii] = Network_feats['AvgCellRate_Pyr'], Network_feats['SynchFreq_Pyr'], Network_feats['SynchFreqPow_Pyr'], Network_feats['PkWidth_Pyr'], Network_feats['Harmonics_Pyr'], Network_feats['SynchMeasure_Pyr'], Network_feats['AvgCellRate_Int'], Network_feats['SynchFreq_Int'], Network_feats['SynchFreqPow_Int'], Network_feats['PkWidth_Int'], Network_feats['Harmonics_Int'], Network_feats['SynchMeasure_Int']
+            
                 if comp_phase:
-                    AvgCellRate_Pyr[pi,ii], SynchFreq_Pyr[pi,ii], SynchFreqPow_Pyr[pi,ii], PkWidth_Pyr[pi,ii], Harmonics_Pyr[pi,ii], SynchMeasure_Pyr[pi,ii], AvgCellRate_Int[pi,ii], SynchFreq_Int[pi,ii], SynchFreqPow_Int[pi,ii], PkWidth_Int[pi,ii], Harmonics_Int[pi,ii], SynchMeasure_Int[pi,ii], PhaseShift_Pyr[pi,ii], PhaseShift_Int[pi,ii] = analyze_network(SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, StateM_Pyr=StateM_Pyr, StateM_Int=StateM_Int, comp_phase=True, N_p=N_p, N_i=N_i, start_time=start_time, end_time=end_time, sim_dt=sim_dt, mts_win=mts_win, W=W, ws=ws)
-                else:
-                    AvgCellRate_Pyr[pi,ii], SynchFreq_Pyr[pi,ii], SynchFreqPow_Pyr[pi,ii], PkWidth_Pyr[pi,ii], Harmonics_Pyr[pi,ii], SynchMeasure_Pyr[pi,ii], AvgCellRate_Int[pi,ii], SynchFreq_Int[pi,ii], SynchFreqPow_Int[pi,ii], PkWidth_Int[pi,ii], Harmonics_Int[pi,ii], SynchMeasure_Int[pi,ii] = analyze_network(SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, N_p=N_p, N_i=N_i, start_time=start_time, end_time=end_time, sim_dt=sim_dt, mts_win=mts_win, W=W, ws=ws)
+                    PhaseShift_Pyr[pi,ii], PhaseShift_Int[pi,ii] = Network_feats['PhaseShift_Pyr'], Network_feats['PhaseShift_Int']
                 
             if save_raw:
                 Params.append(str((PyrInp, IntInp)))
@@ -720,7 +748,23 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
         rawfile.close()
     
     if analyze:
-        return AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int
+        Sims_feats = {'AvgCellRate_Pyr':AvgCellRate_Pyr,
+                      'SynchFreq_Pyr':SynchFreq_Pyr,
+                      'SynchFreqPow_Pyr':SynchFreqPow_Pyr,
+                      'PkWidth_Pyr':PkWidth_Pyr,
+                      'Harmonics_Pyr':Harmonics_Pyr,
+                      'SynchMeasure_Pyr':SynchMeasure_Pyr,
+                      'AvgCellRate_Int':AvgCellRate_Int,
+                      'SynchFreq_Int':SynchFreq_Int,
+                      'SynchFreqPow_Int':SynchFreqPow_Int,
+                      'PkWidth_Int':PkWidth_Int,
+                      'Harmonics_Int':Harmonics_Int,
+                      'SynchMeasure_Int':SynchMeasure_Int}
+        if comp_phase:
+            Sims_feats['PhaseShift_Pyr'] = PhaseShift_Pyr
+            Sims_feats['PhaseShift_Int'] = PhaseShift_Int
+            
+        return Sims_feats
     
 #####################################################################################
 
@@ -791,16 +835,15 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
             
             gc.collect()
             
-            if monitored==[] and not record_vm:
-                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int = run_network_IP(N_p=N_p, N_i=N_i, PyrEqs=PyrEqs, IntEqs=IntEqs, PreEqAMPA=PreEqAMPA, PreEqGABA=PreEqGABA, PyrInp=PyrInp, IntInp=IntInp, IPois_A=IP_A, IPois_Atype=IPois_Atype, IPois_f=IP_f, PP_C=PP_C, IP_C=IP_C, II_C=II_C, PI_C=PI_C, runtime=runtime, sim_dt=sim_dt, monitored=[], verbose=verbose, PlotFlag=False)
-            else:
-                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, StateM_Pyr, StateM_Int = run_network_IP(N_p=N_p, N_i=N_i, PyrEqs=PyrEqs, IntEqs=IntEqs, PreEqAMPA=PreEqAMPA, PreEqGABA=PreEqGABA, PyrInp=PyrInp, IntInp=IntInp, IPois_A=IP_A, IPois_Atype=IPois_Atype, IPois_f=IP_f, PP_C=PP_C, IP_C=IP_C, II_C=II_C, PI_C=PI_C, runtime=runtime, sim_dt=sim_dt, monitored=monitored, record_vm=record_vm, verbose=verbose, PlotFlag=False)
+            Monitors = run_network_IP(N_p=N_p, N_i=N_i, PyrEqs=PyrEqs, IntEqs=IntEqs, PreEqAMPA=PreEqAMPA, PreEqGABA=PreEqGABA, PyrInp=PyrInp, IntInp=IntInp, IPois_A=IP_A, IPois_Atype=IPois_Atype, IPois_f=IP_f, PP_C=PP_C, IP_C=IP_C, II_C=II_C, PI_C=PI_C, runtime=runtime, sim_dt=sim_dt, monitored=monitored, record_vm=record_vm, verbose=verbose, PlotFlag=False)
             
             if analyze:
+                Network_feats = analyze_network(Monitors, comp_phase=comp_phase, N_p=N_p, N_i=N_i, start_time=start_time, end_time=end_time, sim_dt=sim_dt, mts_win=mts_win, W=W, ws=ws)
+                
+                AvgCellRate_Pyr[pi,ii], SynchFreq_Pyr[pi,ii], SynchFreqPow_Pyr[pi,ii], PkWidth_Pyr[pi,ii], Harmonics_Pyr[pi,ii], SynchMeasure_Pyr[pi,ii], AvgCellRate_Int[pi,ii], SynchFreq_Int[pi,ii], SynchFreqPow_Int[pi,ii], PkWidth_Int[pi,ii], Harmonics_Int[pi,ii], SynchMeasure_Int[pi,ii] = Network_feats['AvgCellRate_Pyr'], Network_feats['SynchFreq_Pyr'], Network_feats['SynchFreqPow_Pyr'], Network_feats['PkWidth_Pyr'], Network_feats['Harmonics_Pyr'], Network_feats['SynchMeasure_Pyr'], Network_feats['AvgCellRate_Int'], Network_feats['SynchFreq_Int'], Network_feats['SynchFreqPow_Int'], Network_feats['PkWidth_Int'], Network_feats['Harmonics_Int'], Network_feats['SynchMeasure_Int']
+            
                 if comp_phase:
-                    AvgCellRate_Pyr[pi,ii], SynchFreq_Pyr[pi,ii], SynchFreqPow_Pyr[pi,ii], PkWidth_Pyr[pi,ii], Harmonics_Pyr[pi,ii], SynchMeasure_Pyr[pi,ii], AvgCellRate_Int[pi,ii], SynchFreq_Int[pi,ii], SynchFreqPow_Int[pi,ii], PkWidth_Int[pi,ii], Harmonics_Int[pi,ii], SynchMeasure_Int[pi,ii], PhaseShift_Pyr[pi,ii], PhaseShift_Int[pi,ii] = analyze_network(SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, StateM_Pyr=StateM_Pyr, StateM_Int=StateM_Int, comp_phase=True, N_p=N_p, N_i=N_i, start_time=start_time, end_time=end_time, sim_dt=sim_dt, mts_win=mts_win, W=W, ws=ws)
-                else:
-                    AvgCellRate_Pyr[pi,ii], SynchFreq_Pyr[pi,ii], SynchFreqPow_Pyr[pi,ii], PkWidth_Pyr[pi,ii], Harmonics_Pyr[pi,ii], SynchMeasure_Pyr[pi,ii], AvgCellRate_Int[pi,ii], SynchFreq_Int[pi,ii], SynchFreqPow_Int[pi,ii], PkWidth_Int[pi,ii], Harmonics_Int[pi,ii], SynchMeasure_Int[pi,ii] = analyze_network(SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, N_p=N_p, N_i=N_i, start_time=start_time, end_time=end_time, sim_dt=sim_dt, mts_win=mts_win, W=W, ws=ws)
+                    PhaseShift_Pyr[pi,ii], PhaseShift_Int[pi,ii] = Network_feats['PhaseShift_Pyr'], Network_feats['PhaseShift_Int']
                 
             if save_raw:
                 Params.append(str((PyrInp, IntInp)))
@@ -857,10 +900,23 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
         rawfile.close()
     
     if analyze:
+        Sims_feats = {'AvgCellRate_Pyr':AvgCellRate_Pyr,
+                      'SynchFreq_Pyr':SynchFreq_Pyr,
+                      'SynchFreqPow_Pyr':SynchFreqPow_Pyr,
+                      'PkWidth_Pyr':PkWidth_Pyr,
+                      'Harmonics_Pyr':Harmonics_Pyr,
+                      'SynchMeasure_Pyr':SynchMeasure_Pyr,
+                      'AvgCellRate_Int':AvgCellRate_Int,
+                      'SynchFreq_Int':SynchFreq_Int,
+                      'SynchFreqPow_Int':SynchFreqPow_Int,
+                      'PkWidth_Int':PkWidth_Int,
+                      'Harmonics_Int':Harmonics_Int,
+                      'SynchMeasure_Int':SynchMeasure_Int}
         if comp_phase:
-            return AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, PhaseShift_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int, PhaseShift_Int
-        else:
-            return AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int
+            Sims_feats['PhaseShift_Pyr'] = PhaseShift_Pyr
+            Sims_feats['PhaseShift_Int'] = PhaseShift_Int
+            
+        return Sims_feats
     
 #####################################################################################
 
@@ -1171,24 +1227,40 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=100
 
         if verbose:
             print('Saved analysis results successfully!')
-                
-    if PlotFlag:
-        plot_results(IterArray1, IterArray2, mode, AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int, PhaseShift_Pyr, PhaseShift_Int, plot_file)
-        
+    
+    Sims_feats = {'AvgCellRate_Pyr':AvgCellRate_Pyr,
+                  'SynchFreq_Pyr':SynchFreq_Pyr,
+                  'SynchFreqPow_Pyr':SynchFreqPow_Pyr,
+                  'PkWidth_Pyr':PkWidth_Pyr,
+                  'Harmonics_Pyr':Harmonics_Pyr,
+                  'SynchMeasure_Pyr':SynchMeasure_Pyr,
+                  'AvgCellRate_Int':AvgCellRate_Int,
+                  'SynchFreq_Int':SynchFreq_Int,
+                  'SynchFreqPow_Int':SynchFreqPow_Int,
+                  'PkWidth_Int':PkWidth_Int,
+                  'Harmonics_Int':Harmonics_Int,
+                  'SynchMeasure_Int':SynchMeasure_Int}
     if comp_phase:
-        return AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int, PhaseShift_Pyr, PhaseShift_Int
-    else:
-        return AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int
+        Sims_feats['PhaseShift_Pyr'] = PhaseShift_Pyr
+        Sims_feats['PhaseShift_Int'] = PhaseShift_Int
+            
+    if PlotFlag:
+        plot_results(IterArray1, IterArray2, mode, Sims_feats, plot_file)
+   
+    return Sims_feats
     
 #####################################################################################
 
 
-def plot_results(IterArray1, IterArray2, mode, AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int, PhaseShift_Pyr=None, PhaseShift_Int=None, out_file=None):
+def plot_results(IterArray1, IterArray2, mode, Sims_feats, out_file=None):
     
-    if PhaseShift_Pyr is None:
-        nrows = 6
-    else:
+    AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int = Sims_feats['AvgCellRate_Pyr'], Sims_feats['SynchFreq_Pyr'], Sims_feats['SynchFreqPow_Pyr'], Sims_feats['PkWidth_Pyr'], Sims_feats['Harmonics_Pyr'], Sims_feats['SynchMeasure_Pyr'], Sims_feats['AvgCellRate_Int'], Sims_feats['SynchFreq_Int'], Sims_feats['SynchFreqPow_Int'], Sims_feats['PkWidth_Int'], Sims_feats['Harmonics_Int'], Sims_feats['SynchMeasure_Int']
+    
+    if Sims_feats.has_key('PhaseShift_Pyr') and Sims_feats.has_key('PhaseShift_Int'):
         nrows = 7
+        PhaseShift_Pyr, PhaseShift_Int = Sims_feats['PhaseShift_Pyr'], Sims_feats['PhaseShift_Int']    
+    else:
+        nrows = 6
     ncolumns = 2
     
     figure(figsize=[5*ncolumns,4*nrows])
