@@ -282,7 +282,7 @@ def run_network_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
 #####################################################################################
 
 
-def analyze_network(Monitors, comp_phase=False, N_p=4000, N_i=1000, start_time=200, end_time=1000, sim_dt=0.02, mts_win='whole', W=2**12, ws=None, PlotFlag=False):
+def analyze_network(Monitors, comp_phase=False, N_p=4000, N_i=1000, start_time=None, end_time=None, sim_dt=0.02, mts_win='whole', W=2**12, ws=None, PlotFlag=False):
 
     SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int']
     
@@ -290,8 +290,13 @@ def analyze_network(Monitors, comp_phase=False, N_p=4000, N_i=1000, start_time=2
     
     if ws is None:
         ws = W/10
+        
+    if start_time is None:
+        start_time = 0
+    if end_time is None:
+        end_time = PopRateM_Pyr.t[-1]/ms
     
-    if start_time > PopRateM_Pyr.t[-1]/ms:
+    if start_time > PopRateM_Pyr.t[-1]/ms or end_time > PopRateM_Pyr.t[-1]/ms:
         raise ValueError('Please provide start time and end time within the simulation time window!')
 
     rates_Pyr = np.zeros(N_p)
@@ -554,9 +559,17 @@ def analyze_network(Monitors, comp_phase=False, N_p=4000, N_i=1000, start_time=2
 #####################################################################################
 
 
-def Monitors_mtspectrogram(Monitors, W=2**12, ws=None, start_time=0, end_time=1000, sim_dt=0.02, PlotFlag=True):
+def Monitors_mtspectrogram(Monitors, W=2**12, ws=None, start_time=None, end_time=None, sim_dt=0.02, PlotFlag=True):
     
     PopRateM_Pyr, PopRateM_Int = Monitors['PopRateM_Pyr'], Monitors['PopRateM_Int']
+    
+    if start_time is None:
+        start_time = 0
+    if end_time is None:
+        end_time = PopRateM_Pyr.t[-1]/ms
+    
+    if start_time > PopRateM_Pyr.t[-1]/ms or end_time > PopRateM_Pyr.t[-1]/ms:
+        raise ValueError('Please provide start time and end time within the simulation time window!')
     
     sim_dt *= ms
     
@@ -616,7 +629,15 @@ def Monitors_mtspectrogram(Monitors, W=2**12, ws=None, start_time=0, end_time=10
 #####################################################################################
 
 
-def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInps=[0.5,1], IntInps=[0.5,1], PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, start_time=200, end_time=1000, sim_dt=0.02, monitored=[], mon_avg=True, comp_phase=False, record_vm=True, mts_win='whole', W=2**12, ws=None, verbose=True, analyze=True, save_analyzed=False, save_raw=False, filename=None):
+def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInps=[0.5,1], IntInps=[0.5,1], PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, start_time=None, end_time=None, sim_dt=0.02, monitored=[], mon_avg=True, comp_phase=False, record_vm=True, mts_win='whole', W=2**12, ws=None, verbose=True, analyze=True, save_analyzed=False, save_raw=False, filename=None):
+    
+    if start_time is None:
+        start_time = 0
+    if end_time is None:
+        end_time = runtime
+    
+    if start_time > runtime or end_time > runtime:
+        raise ValueError('Please provide start time and end time within the simulation time window!')
     
     if not any((type(PyrInps) is list, type(PyrInps) is np.ndarray)):
         PyrInps = [PyrInps]
@@ -773,7 +794,15 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
 #####################################################################################
 
 
-def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInp=1, IntInp=1, IPois_As=[1.], IPois_Atype='ramp', IPois_fs=[70], PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, start_time=200, end_time=1000, sim_dt=0.02, monitored=[], mon_avg=True, record_vm=True, mts_win='whole', W=2**12, ws=None, verbose=True, analyze=True, save_analyzed=False, save_raw=False, filename=None):
+def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInp=1, IntInp=1, IPois_As=[1.], IPois_Atype='ramp', IPois_fs=[70], PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, start_time=None, end_time=None, sim_dt=0.02, monitored=[], mon_avg=True, record_vm=True, mts_win='whole', W=2**12, ws=None, verbose=True, analyze=True, save_analyzed=False, save_raw=False, filename=None):
+    
+    if start_time is None:
+        start_time = 0
+    if end_time is None:
+        end_time = runtime
+    
+    if start_time > runtime or end_time > runtime:
+        raise ValueError('Please provide start time and end time within the simulation time window!')
     
     if not any((type(IPois_As) is list, type(IPois_As) is np.ndarray)):
         IPois_As = [IPois_As]
@@ -929,7 +958,7 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
 #####################################################################################
 
 
-def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=1000, sim_dt=0.02, comp_phase=False, mts_win='whole', W=2**12, ws=None, verbose=False, PlotFlag=False, plot_file=None, out_file=None):
+def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=None, end_time=None, sim_dt=0.02, comp_phase=False, mts_win='whole', W=2**12, ws=None, verbose=False, PlotFlag=False, plot_file=None, out_file=None):
     
     sim_dt *= ms
     
@@ -960,6 +989,15 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=100
         I_GABA_Int_list = rawfile.root.IsynI_Int.read()
         
     rawfile.close()
+    
+    runtime = len(PopRateSig_Pyr_list[0])*sim_dt/ms
+    if start_time is None:
+        start_time = 0
+    if end_time is None:
+        end_time = runtime
+    
+    if start_time > runtime or end_time > runtime:
+        raise ValueError('Please provide start time and end time within the simulation time window!')
         
     AvgCellRate_Pyr = np.zeros((len(IterArray1),len(IterArray2)))
     SynchFreq_Pyr = np.zeros_like(AvgCellRate_Pyr)
@@ -1425,7 +1463,7 @@ def plot_results(IterArray1, IterArray2, mode, Sims_feats, out_file=None):
 #####################################################################################
 
 
-def plot_mts_grid(rawfile, mode, start_time=200, end_time=1000, mts_win='whole', W=2**12, ws=None, sim_dt=0.02, out_file=None):
+def plot_mts_grid(rawfile, mode, start_time=None, end_time=None, mts_win='whole', W=2**12, ws=None, sim_dt=0.02, out_file=None):
     
     sim_dt *= ms
     
@@ -1448,6 +1486,15 @@ def plot_mts_grid(rawfile, mode, start_time=200, end_time=1000, mts_win='whole',
         figure(2, figsize=[6*len(PyrInps),5*len(IntInps)])
 
         fmax = (1/(sim_dt))/2
+        
+        runtime = len(PopRateSig_Pyr_list[0])*sim_dt/ms
+        if start_time is None:
+            start_time = 0
+        if end_time is None:
+            end_time = runtime
+
+        if start_time > runtime or end_time > runtime:
+            raise ValueError('Please provide start time and end time within the simulation time window!')
     
         for ii in range(len(IntInps)):
             ii2 = len(PyrInps)-ii-1
@@ -1535,6 +1582,15 @@ def plot_mts_grid(rawfile, mode, start_time=200, end_time=1000, mts_win='whole',
     
         fmax = (1/(sim_dt))/2
         
+        runtime = len(PopRateSig_Pyr_list[0])*sim_dt/ms
+        if start_time is None:
+            start_time = 0
+        if end_time is None:
+            end_time = runtime
+
+        if start_time > runtime or end_time > runtime:
+            raise ValueError('Please provide start time and end time within the simulation time window!')
+        
         for pi,IP_A in enumerate(IPois_As):
         
             for ii,IP_f in enumerate(IPois_fs):
@@ -1613,7 +1669,7 @@ def plot_mts_grid(rawfile, mode, start_time=200, end_time=1000, mts_win='whole',
 #####################################################################################
 
 
-def plot_spikes_grid(rawfile, mode, start_time=200, end_time=1000, sim_dt=0.02, out_file=None):
+def plot_spikes_grid(rawfile, mode, start_time=None, end_time=None, sim_dt=0.02, out_file=None):
     
     sim_dt *= ms
     
@@ -1634,6 +1690,7 @@ def plot_spikes_grid(rawfile, mode, start_time=200, end_time=1000, sim_dt=0.02, 
         figure(figsize=[8*len(PyrInps),5*len(IntInps)])
 
         fmax = (1/(sim_dt))/2
+
     
         for ii in range(len(IntInps)):
             ii2 = len(PyrInps)-ii-1
@@ -1650,7 +1707,8 @@ def plot_spikes_grid(rawfile, mode, start_time=200, end_time=1000, sim_dt=0.02, 
             
                 subplot(len(PyrInps), len(IntInps), sp_idx+1)
                 plot(Spike_t_Pyr*1000, Spike_i_Pyr, '.', Spike_t_Int*1000, Spike_i_Int+4000, '.')
-                xlim(start_time, end_time)
+                if all((not start_time is None, not end_time is None)):
+                    xlim(start_time, end_time)
                 xlabel('Time (ms)')
                 ylabel('Neuron Index')
                 title('Pyr. Inp.: %s, Int. Inp.:%s' % (PyrInps[pi], IntInps[ii2]))
@@ -1686,8 +1744,8 @@ def plot_spikes_grid(rawfile, mode, start_time=200, end_time=1000, sim_dt=0.02, 
             
                 subplot(len(IPois_As), len(IPois_fs), idx+1)
                 plot(Spike_t_Pyr*1000, Spike_i_Pyr, '.', Spike_t_Int*1000, Spike_i_Int+4000, '.')
-                xlim(start_time, end_time)
-                xlabel('Time (ms)')
+                if all((not start_time is None, not end_time is None)):
+                    xlim(start_time, end_time)                xlabel('Time (ms)')
                 ylabel('Neuron Index')
                 title('IP Amp.: %s, IP Freq.:%s' % (IP_A, IP_f))
             
@@ -1699,7 +1757,7 @@ def plot_spikes_grid(rawfile, mode, start_time=200, end_time=1000, sim_dt=0.02, 
 #####################################################################################
 
 
-def plot_poprate_grid(rawfile, mode, start_time=200, end_time=1000, sim_dt=0.02, out_file=None):
+def plot_poprate_grid(rawfile, mode, start_time=None, end_time=None, sim_dt=0.02, out_file=None):
     
     sim_dt *= ms
     
@@ -1719,6 +1777,15 @@ def plot_poprate_grid(rawfile, mode, start_time=200, end_time=1000, sim_dt=0.02,
         figure(2, figsize=[8*len(PyrInps),5*len(IntInps)])
     
         fmax = (1/(sim_dt))/2
+        
+        runtime = len(PopRateSig_Pyr_list[0])*sim_dt/ms
+        if start_time is None:
+            start_time = 0
+        if end_time is None:
+            end_time = runtime
+
+        if start_time > runtime or end_time > runtime:
+            raise ValueError('Please provide start time and end time within the simulation time window!')
     
         for ii in range(len(IntInps)):
             ii2 = len(PyrInps)-ii-1
@@ -1766,6 +1833,15 @@ def plot_poprate_grid(rawfile, mode, start_time=200, end_time=1000, sim_dt=0.02,
     
         fmax = (1/(sim_dt))/2
         
+        runtime = len(PopRateSig_Pyr_list[0])*sim_dt/ms
+        if start_time is None:
+            start_time = 0
+        if end_time is None:
+            end_time = runtime
+
+        if start_time > runtime or end_time > runtime:
+            raise ValueError('Please provide start time and end time within the simulation time window!')
+        
         for pi,IP_A in enumerate(IPois_As):
         
             for ii,IP_f in enumerate(IPois_fs):
@@ -1803,7 +1879,7 @@ def plot_poprate_grid(rawfile, mode, start_time=200, end_time=1000, sim_dt=0.02,
 #####################################################################################
 
 
-def plot_spcgram_grid(rawfile, mode, start_time=200, end_time=1000, W=2**12, ws=None, sim_dt=0.02, out_file=None):
+def plot_spcgram_grid(rawfile, mode, start_time=None, end_time=None, W=2**12, ws=None, sim_dt=0.02, out_file=None):
     
     sim_dt *= ms
     
@@ -1826,6 +1902,15 @@ def plot_spcgram_grid(rawfile, mode, start_time=200, end_time=1000, W=2**12, ws=
         figure(2, figsize=[6*len(PyrInps),5*len(IntInps)])
     
         fmax = (1/(sim_dt))/2
+        
+        runtime = len(PopRateSig_Pyr_list[0])*sim_dt/ms
+        if start_time is None:
+            start_time = 0
+        if end_time is None:
+            end_time = runtime
+
+        if start_time > runtime or end_time > runtime:
+            raise ValueError('Please provide start time and end time within the simulation time window!')
     
         for ii in range(len(IntInps)):
             ii2 = len(PyrInps)-ii-1
@@ -1893,6 +1978,15 @@ def plot_spcgram_grid(rawfile, mode, start_time=200, end_time=1000, W=2**12, ws=
         figure(2, figsize=[6*len(IPois_fs),5*len(IPois_As)])
     
         fmax = (1/(sim_dt))/2
+        
+        runtime = len(PopRateSig_Pyr_list[0])*sim_dt/ms
+        if start_time is None:
+            start_time = 0
+        if end_time is None:
+            end_time = runtime
+
+        if start_time > runtime or end_time > runtime:
+            raise ValueError('Please provide start time and end time within the simulation time window!')
         
         for pi,IP_A in enumerate(IPois_As):
         
