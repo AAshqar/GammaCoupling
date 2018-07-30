@@ -452,25 +452,7 @@ def analyze_network(Monitors, comp_phase=False, N_p=4000, N_i=1000, start_time=N
         
         N_sm = 5
         smoothed = np.convolve(RateMTS_Pyr, np.ones([N_sm])/N_sm, mode='same')
-        freq_vect_sm = freq_vect[:len(smoothed    '''
-    Analyzes a pre-simulated network and extracts various features using the provided monitors
-    
-    * Parameters:
-    - Monitors: A dictionary of the monitors used to record raw data during the simulation
-    - comp_phase: Whether to include phase shift calculations between of AMPA and GABA currents
-    - N_p: Number of pyramidal neurons in the simulated network
-    - N_i: Number of interneurons in the simulated network
-    - start_time: Beginning time of analysis within the simulation time [ms]
-    - end_time: Ending time of analysis within the simulation time [ms]
-    - sim_dt: Time step used in the simulation [ms]
-    - mts_win: Whether to calculate the spectrum for the whole recording or as an average of moving window spectrums
-    - W: Window length for the calculation of the multi-taper spectrum
-    - ws: Sliding step of the moving window for muti-taper spectrum estimation
-    - PlotFlag: Whether to plot some results after the simulation
-    
-    * Returns:
-    - Network_feats: A dictinary of the different features calculated from the recorded data of the simulation
-    ''')]
+        freq_vect_sm = freq_vect[:len(smoothed)]
 
         maxInd = np.argmax(RateMTS_Pyr)
         if np.argmax(RateMTS_Pyr) < 5:
@@ -1458,4 +1440,3 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=None, end_time=No
         plot_results(IterArray1, IterArray2, mode, Sims_feats, plot_file)
    
     return Sims_feats
-
