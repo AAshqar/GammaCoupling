@@ -139,6 +139,10 @@ def run_network(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
         rawfile.create_carray(root, 'SpikeM_i_Int_raw', obj=np.array(SpikeM_Int.i))
         rawfile.create_carray(root, 'PopRateSig_Pyr_raw', obj=PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms))
         rawfile.create_carray(root, 'PopRateSig_Int_raw', obj=PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
+        rawfile.create_carray(root, 'SynPP_ij', obj=np.array(zip(SynPP.i,SynPP.j)))
+        rawfile.create_carray(root, 'SynIP_ij', obj=np.array(zip(SynIP.i,SynIP.j)))
+        rawfile.create_carray(root, 'SynII_ij', obj=np.array(zip(SynII.i,SynII.j)))
+        rawfile.create_carray(root, 'SynPI_ij', obj=np.array(zip(SynPI.i,SynPI.j)))
         if monitor_pois:
             rawfile.create_carray(root, 'SpikeM_t_PoisPyr_raw', obj=np.array(SpikeM_PoisPyr.t/ms)*ms)
             rawfile.create_carray(root, 'SpikeM_i_PoisPyr_raw', obj=np.array(SpikeM_PoisPyr.i))
@@ -175,7 +179,9 @@ def run_network(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
     Monitors = {'SpikeM_Pyr':SpikeM_Pyr,
                 'PopRateM_Pyr':PopRateM_Pyr,
                 'SpikeM_Int':SpikeM_Int,
-                'PopRateM_Int':PopRateM_Int}
+                'PopRateM_Int':PopRateM_Int,
+                'SynPP':SynPP, 'SynIP':SynIP,
+                'SynII':SynII, 'SynPI':SynPI}
     if not monitored_Pyr==[]:
         Monitors['StateM_Pyr'] = StateM_Pyr
         Monitors['StateM_Int'] = StateM_Int
@@ -328,6 +334,10 @@ def run_network_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
         rawfile.create_carray(root, 'SpikeM_i_Int_raw', obj=np.array(SpikeM_Int.i))
         rawfile.create_carray(root, 'PopRateSig_Pyr_raw', obj=PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms))
         rawfile.create_carray(root, 'PopRateSig_Int_raw', obj=PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
+        rawfile.create_carray(root, 'SynPP_ij', obj=np.array(zip(SynPP.i,SynPP.j)))
+        rawfile.create_carray(root, 'SynIP_ij', obj=np.array(zip(SynIP.i,SynIP.j)))
+        rawfile.create_carray(root, 'SynII_ij', obj=np.array(zip(SynII.i,SynII.j)))
+        rawfile.create_carray(root, 'SynPI_ij', obj=np.array(zip(SynPI.i,SynPI.j)))
         if monitor_pois:
             rawfile.create_carray(root, 'SpikeM_t_PoisPyr_raw', obj=np.array(SpikeM_PoisPyr.t/ms)*ms)
             rawfile.create_carray(root, 'SpikeM_i_PoisPyr_raw', obj=np.array(SpikeM_PoisPyr.i))
@@ -365,7 +375,9 @@ def run_network_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
     Monitors = {'SpikeM_Pyr':SpikeM_Pyr,
                 'PopRateM_Pyr':PopRateM_Pyr,
                 'SpikeM_Int':SpikeM_Int,
-                'PopRateM_Int':PopRateM_Int}
+                'PopRateM_Int':PopRateM_Int,
+                'SynPP':SynPP, 'SynIP':SynIP,
+                'SynII':SynII, 'SynPI':SynPI}
     if not monitored_Pyr==[]:
         Monitors['StateM_Pyr'] = StateM_Pyr
         Monitors['StateM_Int'] = StateM_Int
@@ -810,6 +822,14 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
         SpikeM_i_Int_raw = rawfile.create_vlarray(root, 'SpikeM_i_Int_raw', tables.Float64Atom(shape=()))
         PopRateSig_Pyr_raw = rawfile.create_vlarray(root, 'PopRateSig_Pyr_raw', tables.Float64Atom(shape=()))
         PopRateSig_Int_raw = rawfile.create_vlarray(root, 'PopRateSig_Int_raw', tables.Float64Atom(shape=()))
+        SynPP_i = rawfile.create_vlarray(root, 'SynPP_i', tables.Int32Atom(shape=()))
+        SynPP_j = rawfile.create_vlarray(root, 'SynPP_j', tables.Int32Atom(shape=()))
+        SynIP_i = rawfile.create_vlarray(root, 'SynIP_i', tables.Int32Atom(shape=()))
+        SynIP_j = rawfile.create_vlarray(root, 'SynIP_j', tables.Int32Atom(shape=()))
+        SynII_i = rawfile.create_vlarray(root, 'SynII_i', tables.Int32Atom(shape=()))
+        SynII_j = rawfile.create_vlarray(root, 'SynII_j', tables.Int32Atom(shape=()))
+        SynPI_i = rawfile.create_vlarray(root, 'SynPI_i', tables.Int32Atom(shape=()))
+        SynPI_j = rawfile.create_vlarray(root, 'SynPI_j', tables.Int32Atom(shape=()))
         rawfile.create_carray(root, "PyrInps", obj=PyrInps)
         rawfile.create_carray(root, "IntInps", obj=IntInps)
         if not monitored==[]:
@@ -869,7 +889,7 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
                     PhaseShift_Pyr[pi,ii], PhaseShift_Int[pi,ii] = Network_feats['PhaseShift_Pyr'], Network_feats['PhaseShift_Int']
                 
             if save_raw:
-                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int']
+                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, SynPP, SynIP, SynII, SynPI = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int'], Monnitors['SynPP'], Monnitors['SynIP'], Monnitors['SynII'], Monnitors['SynPI']
 
                 rawfile = tables.open_file(filename+'_raw.h5', mode='a')
                 Params = rawfile.root.Params
@@ -887,6 +907,22 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
                 PopRateSig_Pyr_raw.append(PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms))
                 PopRateSig_Int_raw = rawfile.rawfile.root.PopRateSig_Int_raw
                 PopRateSig_Int_raw.append(PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
+                SynPP_i = rawfile.rawfile.root.SynPP_i
+                SynPP_i.append(np.array(SynPP.i))
+                SynPP_j = rawfile.rawfile.root.SynPP_j
+                SynPP_j.append(np.array(SynPP.j))
+                SynIP_i = rawfile.rawfile.root.SynIP_i
+                SynIP_i.append(np.array(SynIP.i))
+                SynIP_j = rawfile.rawfile.root.SynIP_j
+                SynIP_j.append(np.array(SynIP.j))
+                SynII_i = rawfile.rawfile.root.SynII_i
+                SynII_i.append(np.array(SynII.i))
+                SynII_j = rawfile.rawfile.root.SynII_j
+                SynII_j.append(np.array(SynII.j))
+                SynPI_i = rawfile.rawfile.root.SynPI_i
+                SynPI_i.append(np.array(SynPI.i))
+                SynPI_j = rawfile.rawfile.root.SynPI_j
+                SynPI_j.append(np.array(SynPI.j))
                 if not monitored==[]:
                     StateM_Pyr, StateM_Int = Monitors['StateM_Pyr'], Monitors['StateM_Int']
                     for i,var in enumerate(monitored): 
@@ -1019,6 +1055,14 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
         SpikeM_i_Int_raw = rawfile.create_vlarray(root, 'SpikeM_i_Int_raw', tables.Float64Atom(shape=()))
         PopRateSig_Pyr_raw = rawfile.create_vlarray(root, 'PopRateSig_Pyr_raw', tables.Float64Atom(shape=()))
         PopRateSig_Int_raw = rawfile.create_vlarray(root, 'PopRateSig_Int_raw', tables.Float64Atom(shape=()))
+        SynPP_i = rawfile.create_vlarray(root, 'SynPP_i', tables.Int32Atom(shape=()))
+        SynPP_j = rawfile.create_vlarray(root, 'SynPP_j', tables.Int32Atom(shape=()))
+        SynIP_i = rawfile.create_vlarray(root, 'SynIP_i', tables.Int32Atom(shape=()))
+        SynIP_j = rawfile.create_vlarray(root, 'SynIP_j', tables.Int32Atom(shape=()))
+        SynII_i = rawfile.create_vlarray(root, 'SynII_i', tables.Int32Atom(shape=()))
+        SynII_j = rawfile.create_vlarray(root, 'SynII_j', tables.Int32Atom(shape=()))
+        SynPI_i = rawfile.create_vlarray(root, 'SynPI_i', tables.Int32Atom(shape=()))
+        SynPI_j = rawfile.create_vlarray(root, 'SynPI_j', tables.Int32Atom(shape=()))
         rawfile.create_carray(root, "IPois_As", obj=IPois_As)
         rawfile.create_carray(root, "IPois_fs", obj=IPois_fs)
         
@@ -1078,7 +1122,7 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
                     PhaseShift_Pyr[pi,ii], PhaseShift_Int[pi,ii] = Network_feats['PhaseShift_Pyr'], Network_feats['PhaseShift_Int']
                 
             if save_raw:
-                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int']
+                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, SynPP, SynIP, SynII, SynPI = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int'], Monnitors['SynPP'], Monnitors['SynIP'], Monnitors['SynII'], Monnitors['SynPI']
 
                 rawfile = tables.open_file(filename+'_raw.h5', mode='a')
                 Params = rawfile.root.Params
@@ -1096,6 +1140,22 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
                 PopRateSig_Pyr_raw.append(PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms))
                 PopRateSig_Int_raw = rawfile.rawfile.root.PopRateSig_Int_raw
                 PopRateSig_Int_raw.append(PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
+                SynPP_i = rawfile.rawfile.root.SynPP_i
+                SynPP_i.append(np.array(SynPP.i))
+                SynPP_j = rawfile.rawfile.root.SynPP_j
+                SynPP_j.append(np.array(SynPP.j))
+                SynIP_i = rawfile.rawfile.root.SynIP_i
+                SynIP_i.append(np.array(SynIP.i))
+                SynIP_j = rawfile.rawfile.root.SynIP_j
+                SynIP_j.append(np.array(SynIP.j))
+                SynII_i = rawfile.rawfile.root.SynII_i
+                SynII_i.append(np.array(SynII.i))
+                SynII_j = rawfile.rawfile.root.SynII_j
+                SynII_j.append(np.array(SynII.j))
+                SynPI_i = rawfile.rawfile.root.SynPI_i
+                SynPI_i.append(np.array(SynPI.i))
+                SynPI_j = rawfile.rawfile.root.SynPI_j
+                SynPI_j.append(np.array(SynPI.j))
                 if not monitored==[]:
                     StateM_Pyr, StateM_Int = Monitors['StateM_Pyr'], Monitors['StateM_Int']
                     for i,var in enumerate(monitored): 
