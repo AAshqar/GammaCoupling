@@ -14,7 +14,36 @@ from NeuronsSpecs.NeuronEqs import *
 #####################################################################################
 
 
-def run_network(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInp=1, IntInp=1, PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, sim_dt=0.02, monitored=[], record_vm=False, save_raw=False, filename=None, verbose=True, PlotFlag=False):
+def run_network(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInp=1, IntInp=1, PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, sim_dt=0.02, monitored=[], monitor_pois=False, record_vm=False, save_raw=False, filename=None, verbose=True, PlotFlag=False):
+    '''
+    Simulates a network consisting of the desired number of pyramidal neurons and interneurons with dynamics described by predefined set of equations.
+    
+    * Parameters:
+    - N_p: Number of excitatory pyramidal neurons in the network
+    - N_i: Number of inhibitory interneurons in the network
+    - PyrEqs: Equations to use for the pyramidal population
+    - IntEqs: Equations to use for the interneurons population
+    - PreEqAMPA: Equations to use for AMPA (excitatory) synapses
+    - PreEqGABA: Equations to use for GABA (inhibitory) synapses
+    - PyrInp: Poisson input rate to the pyramidal neurons [kHz]
+    - IntInp: Poisson input rate to the interneurons [kHz]
+    - PP_C: Pyramidal-pyramidal Connectivity
+    - IP_C: Interneuron-pyramidal Connectivity
+    - II_C: Interneuron-interneuron Connectivity
+    - PI_C: Pyramidal-interneuron Connectivity
+    - runtime: Time of the simulation [ms]
+    - sim_dt: Simulation time step [ms]
+    - monitored: List of monitored variables from the neurons
+    - monitor_pois: Whether to have monitors for the poisson input populations
+    - record_vm: Whether to record membrane voltage of the neurons (only first and last of each population)
+    - save_raw: Whether to save raw data after the simulation
+    - filename: File name under which raw data is saved
+    - verbose: Whether to print progress texts while running
+    - PlotFlag: Whether to plot some results after the simulation
+    
+    * Returns:
+    - Monitors: A dictinary of the different monitors used in the simulation and recorded data stored within them
+    '''
     
     runtime *= ms
     sim_dt *= ms
@@ -64,19 +93,27 @@ def run_network(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
     SpikeM_Int = SpikeMonitor(Int_pop)
     PopRateM_Int = PopulationRateMonitor(Int_pop)
     
-    if monitored_Pyr==[]:
-        net = Network(Pyr_pop, Int_pop, Poiss_AMPA_Pyr, Poiss_AMPA_Int,
-                      SynIP, SynPI, SynII, SynPoiss_AMPA_Pyr,
-                      SynPoiss_AMPA_Int, SpikeM_Pyr, PopRateM_Pyr,
-                      SpikeM_Int, PopRateM_Int)
-    else:
+    monitors = [SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int]
+    if not monitored_Pyr==[]:
         StateM_Pyr = StateMonitor(Pyr_pop, monitored_Pyr, record=True)
         StateM_Int = StateMonitor(Int_pop, monitored_Int, record=True)
-        net = Network(Pyr_pop, Int_pop, Poiss_AMPA_Pyr, Poiss_AMPA_Int,
-                      SynIP, SynPI, SynII, SynPoiss_AMPA_Pyr,
-                      SynPoiss_AMPA_Int, SpikeM_Pyr, PopRateM_Pyr,
-                      SpikeM_Int, PopRateM_Int, StateM_Pyr, StateM_Int)
-    
+        monitors.append(StateM_Pyr)
+        monitors.append(StateM_Int)
+        
+    if monitor_pois:
+        SpikeM_PoisPyr = SpikeMonitor(Poiss_AMPA_Pyr)
+        PopRateM_PoisPyr = PopulationRateMonitor(Poiss_AMPA_Pyr)
+        monitors.append(SpikeM_PoisPyr)
+        monitors.append(PopRateM_PoisPyr)
+
+        SpikeM_PoisInt = SpikeMonitor(Poiss_AMPA_Int)
+        PopRateM_PoisInt = PopulationRateMonitor(Poiss_AMPA_Int)
+        monitors.append(SpikeM_PoisInt)
+        monitors.append(PopRateM_PoisInt)
+        
+    net = Network(Pyr_pop, Int_pop, Poiss_AMPA_Pyr, Poiss_AMPA_Int,
+                  SynIP, SynPI, SynII, SynPoiss_AMPA_Pyr,
+                  SynPoiss_AMPA_Int, monitors)
     if verbose:
         print('Running the network...')
 
@@ -100,9 +137,19 @@ def run_network(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
         rawfile.create_carray(root, 'SpikeM_i_Pyr_raw', obj=np.array(SpikeM_Pyr.i))
         rawfile.create_carray(root, 'SpikeM_t_Int_raw', obj=np.array(SpikeM_Int.t/ms)*ms)
         rawfile.create_carray(root, 'SpikeM_i_Int_raw', obj=np.array(SpikeM_Int.i))
-        
         rawfile.create_carray(root, 'PopRateSig_Pyr_raw', obj=PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms))
         rawfile.create_carray(root, 'PopRateSig_Int_raw', obj=PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
+        rawfile.create_carray(root, 'SynPP_ij', obj=np.array(zip(SynPP.i,SynPP.j)))
+        rawfile.create_carray(root, 'SynIP_ij', obj=np.array(zip(SynIP.i,SynIP.j)))
+        rawfile.create_carray(root, 'SynII_ij', obj=np.array(zip(SynII.i,SynII.j)))
+        rawfile.create_carray(root, 'SynPI_ij', obj=np.array(zip(SynPI.i,SynPI.j)))
+        if monitor_pois:
+            rawfile.create_carray(root, 'SpikeM_t_PoisPyr_raw', obj=np.array(SpikeM_PoisPyr.t/ms)*ms)
+            rawfile.create_carray(root, 'SpikeM_i_PoisPyr_raw', obj=np.array(SpikeM_PoisPyr.i))
+            rawfile.create_carray(root, 'SpikeM_t_PoisInt_raw', obj=np.array(SpikeM_PoisInt.t/ms)*ms)
+            rawfile.create_carray(root, 'SpikeM_i_PoisInt_raw', obj=np.array(SpikeM_PoisInt.i))
+            rawfile.create_carray(root, 'PopRateSig_PoisPyr_raw', obj=PopRateM_PoisPyr.smooth_rate(window='gaussian', width=1*ms))
+            rawfile.create_carray(root, 'PopRateSig_PoisInt_raw', obj=PopRateM_PoisInt.smooth_rate(window='gaussian', width=1*ms))
 
         if not monitored==[]:
             for i,var in enumerate(monitored):
@@ -132,17 +179,56 @@ def run_network(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
     Monitors = {'SpikeM_Pyr':SpikeM_Pyr,
                 'PopRateM_Pyr':PopRateM_Pyr,
                 'SpikeM_Int':SpikeM_Int,
-                'PopRateM_Int':PopRateM_Int}
+                'PopRateM_Int':PopRateM_Int,
+                'SynPP':SynPP, 'SynIP':SynIP,
+                'SynII':SynII, 'SynPI':SynPI}
     if not monitored_Pyr==[]:
         Monitors['StateM_Pyr'] = StateM_Pyr
         Monitors['StateM_Int'] = StateM_Int
+    if monitor_pois:
+        Monitors['SpikeM_PoisPyr'] = SpikeM_PoisPyr
+        Monitors['PopRateM_PoisPyr'] = PopRateM_PoisPyr
+        Monitors['SpikeM_PoisInt'] = SpikeM_PoisInt
+        Monitors['PopRateM_PoisInt'] = PopRateM_PoisInt
         
     return Monitors
     
 #####################################################################################
 
 
-def run_network_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInp=1, IntInp=1, IPois_A=1., IPois_Atype='ramp', IPois_f=70, PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, sim_dt=0.02, monitored=[], record_vm=False, verbose=True, save_raw=False, filename=None, PlotFlag=False):
+def run_network_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInp=1, IntInp=1, IPois_A=1., IPois_Atype='ramp', IPois_f=70, PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, sim_dt=0.02, monitored=[], monitor_pois=False, record_vm=False, save_raw=False, filename=None, verbose=True, PlotFlag=False):
+    '''
+    Simulates a network consisting of the desired number of pyramidal neurons and interneurons with dynamics described by predefined set of equations. Inputs are inhomogenous poisson processes (AC rates)
+    
+    * Parameters:
+    - N_p: Number of excitatory pyramidal neurons in the network
+    - N_i: Number of inhibitory interneurons in the network
+    - PyrEqs: Equations to use for the pyramidal population
+    - IntEqs: Equations to use for the interneurons population
+    - PreEqAMPA: Equations to use for AMPA (excitatory) synapses
+    - PreEqGABA: Equations to use for GABA (inhibitory) synapses
+    - PyrInp: Poisson input rate to the pyramidal neurons [kHz]
+    - IntInp: Poisson input rate to the interneurons [kHz]
+    - IPois_A: Inhomogenous poisson's amplitude of variation [kHz]
+    - IPois_Atype: Type of the inhomogenous poisson's amplitude of variation ('ramp' or 'const')
+    - IPois_f: Inhomogenous poisson's frequency [Hz]
+    - PP_C: Pyramidal-pyramidal Connectivity
+    - IP_C: Interneuron-pyramidal Connectivity
+    - II_C: Interneuron-interneuron Connectivity
+    - PI_C: Pyramidal-interneuron Connectivity
+    - runtime: Time of the simulation [ms]
+    - sim_dt: Simulation time step [ms]
+    - monitored: List of monitored variables from the neurons
+    - monitor_pois: Whether to have monitors for the poisson input populations
+    - record_vm: Whether to record membrane voltage of the neurons (only first and last of each population)
+    - save_raw: Whether to save raw data after the simulation
+    - filename: File name under which raw data is saved
+    - verbose: Whether to print progress texts while running
+    - PlotFlag: Whether to plot some results after the simulation
+    
+    * Returns:
+    - Monitors: A dictinary of the different monitors used in the simulation and recorded data stored within them
+    '''
     
     runtime *= ms
     sim_dt *= ms
@@ -201,18 +287,27 @@ def run_network_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
     SpikeM_Int = SpikeMonitor(Int_pop)
     PopRateM_Int = PopulationRateMonitor(Int_pop)
     
-    if monitored_Pyr==[]:
-        net = Network(Pyr_pop, Int_pop, Poiss_AMPA_Pyr, Poiss_AMPA_Int,
-                      SynIP, SynPI, SynII, SynPoiss_AMPA_Pyr,
-                      SynPoiss_AMPA_Int, SpikeM_Pyr, PopRateM_Pyr,
-                      SpikeM_Int, PopRateM_Int)
-    else:
+    monitors = [SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int]
+    if not monitored_Pyr==[]:
         StateM_Pyr = StateMonitor(Pyr_pop, monitored_Pyr, record=True)
         StateM_Int = StateMonitor(Int_pop, monitored_Int, record=True)
-        net = Network(Pyr_pop, Int_pop, Poiss_AMPA_Pyr, Poiss_AMPA_Int,
-                      SynIP, SynPI, SynII, SynPoiss_AMPA_Pyr,
-                      SynPoiss_AMPA_Int, SpikeM_Pyr, PopRateM_Pyr,
-                      SpikeM_Int, PopRateM_Int, StateM_Pyr, StateM_Int)
+        monitors.append(StateM_Pyr)
+        monitors.append(StateM_Int)
+        
+    if monitor_pois:
+        SpikeM_PoisPyr = SpikeMonitor(Poiss_AMPA_Pyr)
+        PopRateM_PoisPyr = PopulationRateMonitor(Poiss_AMPA_Pyr)
+        monitors.append(SpikeM_PoisPyr)
+        monitors.append(PopRateM_PoisPyr)
+
+        SpikeM_PoisInt = SpikeMonitor(Poiss_AMPA_Int)
+        PopRateM_PoisInt = PopulationRateMonitor(Poiss_AMPA_Int)
+        monitors.append(SpikeM_PoisInt)
+        monitors.append(PopRateM_PoisInt)
+        
+    net = Network(Pyr_pop, Int_pop, Poiss_AMPA_Pyr, Poiss_AMPA_Int,
+                  SynIP, SynPI, SynII, SynPoiss_AMPA_Pyr,
+                  SynPoiss_AMPA_Int, monitors)
     
     if verbose:
         print('Running the network...')
@@ -233,15 +328,23 @@ def run_network_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
         root = rawfile.root
         rawfile.create_array(root, 'PyrInp', obj=PyrInp)
         rawfile.create_array(root, 'IntInp', obj=IntInp)
-        rawfile.create_array(root, 'IPois_f', obj=IPois_f)
-        rawfile.create_array(root, 'IPois_A', obj=IPois_A)
         rawfile.create_carray(root, 'SpikeM_t_Pyr_raw', obj=np.array(SpikeM_Pyr.t/ms)*ms)
         rawfile.create_carray(root, 'SpikeM_i_Pyr_raw', obj=np.array(SpikeM_Pyr.i))
         rawfile.create_carray(root, 'SpikeM_t_Int_raw', obj=np.array(SpikeM_Int.t/ms)*ms)
         rawfile.create_carray(root, 'SpikeM_i_Int_raw', obj=np.array(SpikeM_Int.i))
-        
         rawfile.create_carray(root, 'PopRateSig_Pyr_raw', obj=PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms))
         rawfile.create_carray(root, 'PopRateSig_Int_raw', obj=PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
+        rawfile.create_carray(root, 'SynPP_ij', obj=np.array(zip(SynPP.i,SynPP.j)))
+        rawfile.create_carray(root, 'SynIP_ij', obj=np.array(zip(SynIP.i,SynIP.j)))
+        rawfile.create_carray(root, 'SynII_ij', obj=np.array(zip(SynII.i,SynII.j)))
+        rawfile.create_carray(root, 'SynPI_ij', obj=np.array(zip(SynPI.i,SynPI.j)))
+        if monitor_pois:
+            rawfile.create_carray(root, 'SpikeM_t_PoisPyr_raw', obj=np.array(SpikeM_PoisPyr.t/ms)*ms)
+            rawfile.create_carray(root, 'SpikeM_i_PoisPyr_raw', obj=np.array(SpikeM_PoisPyr.i))
+            rawfile.create_carray(root, 'SpikeM_t_PoisInt_raw', obj=np.array(SpikeM_PoisInt.t/ms)*ms)
+            rawfile.create_carray(root, 'SpikeM_i_PoisInt_raw', obj=np.array(SpikeM_PoisInt.i))
+            rawfile.create_carray(root, 'PopRateSig_PoisPyr_raw', obj=PopRateM_PoisPyr.smooth_rate(window='gaussian', width=1*ms))
+            rawfile.create_carray(root, 'PopRateSig_PoisInt_raw', obj=PopRateM_PoisInt.smooth_rate(window='gaussian', width=1*ms))
 
         if not monitored==[]:
             for i,var in enumerate(monitored):
@@ -272,17 +375,43 @@ def run_network_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
     Monitors = {'SpikeM_Pyr':SpikeM_Pyr,
                 'PopRateM_Pyr':PopRateM_Pyr,
                 'SpikeM_Int':SpikeM_Int,
-                'PopRateM_Int':PopRateM_Int}
+                'PopRateM_Int':PopRateM_Int,
+                'SynPP':SynPP, 'SynIP':SynIP,
+                'SynII':SynII, 'SynPI':SynPI}
     if not monitored_Pyr==[]:
         Monitors['StateM_Pyr'] = StateM_Pyr
         Monitors['StateM_Int'] = StateM_Int
+    if monitor_pois:
+        Monitors['SpikeM_PoisPyr'] = SpikeM_PoisPyr
+        Monitors['PopRateM_PoisPyr'] = PopRateM_PoisPyr
+        Monitors['SpikeM_PoisInt'] = SpikeM_PoisInt
+        Monitors['PopRateM_PoisInt'] = PopRateM_PoisInt
         
     return Monitors
     
 #####################################################################################
 
 
-def analyze_network(Monitors, comp_phase=False, N_p=4000, N_i=1000, start_time=200, end_time=1000, sim_dt=0.02, mts_win='whole', W=2**12, ws=None, PlotFlag=False):
+def analyze_network(Monitors, comp_phase=False, N_p=4000, N_i=1000, start_time=None, end_time=None, sim_dt=0.02, mts_win='whole', W=2**12, ws=None, PlotFlag=False):
+    '''
+    Analyzes a pre-simulated network and extracts various features using the provided monitors
+    
+    * Parameters:
+    - Monitors: A dictionary of the monitors used to record raw data during the simulation
+    - comp_phase: Whether to include phase shift calculations between of AMPA and GABA currents
+    - N_p: Number of pyramidal neurons in the simulated network
+    - N_i: Number of interneurons in the simulated network
+    - start_time: Beginning time of analysis within the simulation time [ms]
+    - end_time: Ending time of analysis within the simulation time [ms]
+    - sim_dt: Time step used in the simulation [ms]
+    - mts_win: Whether to calculate the spectrum for the whole recording or as an average of moving window spectrums
+    - W: Window length for the calculation of the multi-taper spectrum
+    - ws: Sliding step of the moving window for muti-taper spectrum estimation
+    - PlotFlag: Whether to plot some results after the simulation
+    
+    * Returns:
+    - Network_feats: A dictinary of the different features calculated from the recorded data of the simulation
+    '''
 
     SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int']
     
@@ -290,8 +419,13 @@ def analyze_network(Monitors, comp_phase=False, N_p=4000, N_i=1000, start_time=2
     
     if ws is None:
         ws = W/10
+        
+    if start_time is None:
+        start_time = 0
+    if end_time is None:
+        end_time = PopRateM_Pyr.t[-1]/ms
     
-    if start_time > PopRateM_Pyr.t[-1]/ms:
+    if start_time > PopRateM_Pyr.t[-1]/ms or end_time > PopRateM_Pyr.t[-1]/ms:
         raise ValueError('Please provide start time and end time within the simulation time window!')
 
     rates_Pyr = np.zeros(N_p)
@@ -554,9 +688,33 @@ def analyze_network(Monitors, comp_phase=False, N_p=4000, N_i=1000, start_time=2
 #####################################################################################
 
 
-def Monitors_mtspectrogram(Monitors, W=2**12, ws=None, start_time=0, end_time=1000, sim_dt=0.02, PlotFlag=True):
+def PopRateM_mtspectrogram(Monitors, W=2**12, ws=None, start_time=None, end_time=None, sim_dt=0.02, PlotFlag=True):
+    '''
+    Computes spectrograms of the instantaneuous population rates for the pyramidal population and interneuronal population respectively, using the provided monitors dictionary
+    
+    * Parameters:
+    - Monitors: A dictionary of the monitors used to record raw data during the simulation
+    - mts_win: Whether to calculate the spectrum for the whole recording or as an average of moving window spectrums
+    - W: Window length for the calculation of the multi-taper spectrum
+    - ws: Sliding step of the moving window for muti-taper spectrum estimation
+    - start_time: Beginning time of analysis within the simulation time [ms]
+    - end_time: Ending time of analysis within the simulation time [ms]
+    - sim_dt: Time step used in the simulation [ms]
+    - PlotFlag: Whether to plot some results after the simulation
+    
+    * Returns:
+    - Rate_MTS: A dictinary containing spectrograms of the pyramidal population and interneuronal population respectively
+    '''
     
     PopRateM_Pyr, PopRateM_Int = Monitors['PopRateM_Pyr'], Monitors['PopRateM_Int']
+    
+    if start_time is None:
+        start_time = 0
+    if end_time is None:
+        end_time = PopRateM_Pyr.t[-1]/ms
+    
+    if start_time > PopRateM_Pyr.t[-1]/ms or end_time > PopRateM_Pyr.t[-1]/ms:
+        raise ValueError('Please provide start time and end time within the simulation time window!')
     
     sim_dt *= ms
     
@@ -611,12 +769,35 @@ def Monitors_mtspectrogram(Monitors, W=2**12, ws=None, start_time=0, end_time=10
         title('Spectrogram (Int.)')
         show()
     
-    return {'RateMTS_Pyr':RateMTS_Pyr, 'RateMTS_Int':RateMTS_Int}
+    Rate_MTS = {'RateMTS_Pyr':RateMTS_Pyr, 'RateMTS_Int':RateMTS_Int}
+    
+    return Rate_MTS
     
 #####################################################################################
 
 
-def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInps=[0.5,1], IntInps=[0.5,1], PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, start_time=200, end_time=1000, sim_dt=0.02, monitored=[], mon_avg=True, comp_phase=False, record_vm=True, mts_win='whole', W=2**12, ws=None, verbose=True, analyze=True, save_analyzed=False, save_raw=False, filename=None):
+def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInps=[0.5,1], IntInps=[0.5,1], PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, start_time=None, end_time=None, sim_dt=0.02, monitored=[], monitor_pois=False, mon_avg=True, comp_phase=False, record_vm=True, mts_win='whole', W=2**12, ws=None, verbose=True, analyze=True, save_analyzed=False, save_raw=False, filename=None):
+    '''
+    Runs simulations for all combinations of the provided lists of poisson input rates for the two populations of pyramidal neurons and interneurons.
+    
+    * Parameters:
+    - analyze: Whether to analyze simulations and extract features
+    - save_analyzed: Whether to sava analysis results in an output file
+    - save_raw: Whether to save raw data of the simulations' recordings
+    - filename: Name of the file underwhich raw/analysis data is saved (name will be appended by 'raw' or 'analysis')
+    [Please refer to the documentation of 'run_network()' for other parameters]
+    
+    * Returns:
+    - Sims_feats: (if 'analyze' is set to true) a dictinary of the different features calculated from the recorded data of all simulations in a matrix form
+    '''
+    
+    if start_time is None:
+        start_time = 0
+    if end_time is None:
+        end_time = runtime
+    
+    if start_time > runtime or end_time > runtime:
+        raise ValueError('Please provide start time and end time within the simulation time window!')
     
     if not any((type(PyrInps) is list, type(PyrInps) is np.ndarray)):
         PyrInps = [PyrInps]
@@ -641,6 +822,14 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
         SpikeM_i_Int_raw = rawfile.create_vlarray(root, 'SpikeM_i_Int_raw', tables.Float64Atom(shape=()))
         PopRateSig_Pyr_raw = rawfile.create_vlarray(root, 'PopRateSig_Pyr_raw', tables.Float64Atom(shape=()))
         PopRateSig_Int_raw = rawfile.create_vlarray(root, 'PopRateSig_Int_raw', tables.Float64Atom(shape=()))
+        SynPP_i = rawfile.create_vlarray(root, 'SynPP_i', tables.Int32Atom(shape=()))
+        SynPP_j = rawfile.create_vlarray(root, 'SynPP_j', tables.Int32Atom(shape=()))
+        SynIP_i = rawfile.create_vlarray(root, 'SynIP_i', tables.Int32Atom(shape=()))
+        SynIP_j = rawfile.create_vlarray(root, 'SynIP_j', tables.Int32Atom(shape=()))
+        SynII_i = rawfile.create_vlarray(root, 'SynII_i', tables.Int32Atom(shape=()))
+        SynII_j = rawfile.create_vlarray(root, 'SynII_j', tables.Int32Atom(shape=()))
+        SynPI_i = rawfile.create_vlarray(root, 'SynPI_i', tables.Int32Atom(shape=()))
+        SynPI_j = rawfile.create_vlarray(root, 'SynPI_j', tables.Int32Atom(shape=()))
         rawfile.create_carray(root, "PyrInps", obj=PyrInps)
         rawfile.create_carray(root, "IntInps", obj=IntInps)
         if not monitored==[]:
@@ -651,10 +840,18 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
                 else:
                     locals()[var+'_Pyr'] = rawfile.create_vlarray(root, var+'_Pyr', tables.Float64Atom(shape=(N_samples, N_p)))
                     locals()[var+'_Int'] = rawfile.create_vlarray(root, var+'_Int', tables.Float64Atom(shape=(N_samples, N_i)))
-    
+        if monitor_pois:
+            SpikeM_t_PoisPyr_raw = rawfile.create_vlarray(root, 'SpikeM_t_PoisPyr_raw', tables.Float64Atom(shape=()))
+            SpikeM_i_PoisPyr_raw = rawfile.create_vlarray(root, 'SpikeM_i_PoisPyr_raw', tables.Float64Atom(shape=()))
+            SpikeM_t_PoisInt_raw = rawfile.create_vlarray(root, 'SpikeM_t_PoisInt_raw', tables.Float64Atom(shape=()))
+            SpikeM_i_PoisInt_raw = rawfile.create_vlarray(root, 'SpikeM_i_PoisInt_raw', tables.Float64Atom(shape=()))
+            PopRateSig_PoisPyr_raw = rawfile.create_vlarray(root, 'PopRateSig_PoisPyr_raw', tables.Float64Atom(shape=()))
+            PopRateSig_PoisInt_raw = rawfile.create_vlarray(root, 'PopRateSig_PoisInt_raw', tables.Float64Atom(shape=()))
         if record_vm:
             Vm_Pyr = rawfile.create_vlarray(root, 'Vm_Pyr', tables.Float64Atom(shape=(N_samples)))
             Vm_Int = rawfile.create_vlarray(root, 'Vm_Int', tables.Float64Atom(shape=(N_samples)))
+        rawfile.close()
+
         
     if analyze:
         AvgCellRate_Pyr = np.zeros((len(PyrInps),len(IntInps)))
@@ -681,7 +878,7 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
             
             gc.collect()
             
-            Monitors = run_network(N_p=N_p, N_i=N_i, PyrEqs=PyrEqs, IntEqs=IntEqs, PreEqAMPA=PreEqAMPA, PreEqGABA=PreEqGABA, PyrInp=PyrInp, IntInp=IntInp, PP_C=PP_C, IP_C=IP_C, II_C=II_C, PI_C=PI_C, runtime=runtime, sim_dt=sim_dt, monitored=monitored, record_vm=record_vm, verbose=verbose, PlotFlag=False)
+            Monitors = run_network(N_p=N_p, N_i=N_i, PyrEqs=PyrEqs, IntEqs=IntEqs, PreEqAMPA=PreEqAMPA, PreEqGABA=PreEqGABA, PyrInp=PyrInp, IntInp=IntInp, PP_C=PP_C, IP_C=IP_C, II_C=II_C, PI_C=PI_C, runtime=runtime, sim_dt=sim_dt, monitored=monitored, monitor_pois=monitor_pois, record_vm=record_vm, verbose=verbose, PlotFlag=False)
             
             if analyze:
                 Network_feats = analyze_network(Monitors, comp_phase=comp_phase, N_p=N_p, N_i=N_i, start_time=start_time, end_time=end_time, sim_dt=sim_dt, mts_win=mts_win, W=W, ws=ws)
@@ -692,34 +889,74 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
                     PhaseShift_Pyr[pi,ii], PhaseShift_Int[pi,ii] = Network_feats['PhaseShift_Pyr'], Network_feats['PhaseShift_Int']
                 
             if save_raw:
-                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int']
-                
+                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, SynPP, SynIP, SynII, SynPI = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int'], Monnitors['SynPP'], Monnitors['SynIP'], Monnitors['SynII'], Monnitors['SynPI']
+
+                rawfile = tables.open_file(filename+'_raw.h5', mode='a')
+                Params = rawfile.root.Params
                 Params.append(str((PyrInp, IntInp)))
+                SpikeM_t_Pyr_raw = rawfile.root.SpikeM_t_Pyr_raw
                 SpikeM_t_Pyr_raw.append(np.array(SpikeM_Pyr.t/ms)*ms)
+                SpikeM_i_Pyr_raw = rawfile.root.SpikeM_i_Pyr_raw
                 SpikeM_i_Pyr_raw.append(np.array(SpikeM_Pyr.i))
+                SpikeM_t_Int_raw = rawfile.rawfile.root.SpikeM_t_Int_raw
                 SpikeM_t_Int_raw.append(np.array(SpikeM_Int.t/ms)*ms)
+                SpikeM_i_Int_raw = rawfile.rawfile.root.SpikeM_i_Int_raw
                 SpikeM_i_Int_raw.append(np.array(SpikeM_Int.i))
+                
+                PopRateSig_Pyr_raw = rawfile.rawfile.root.PopRateSig_Pyr_raw
                 PopRateSig_Pyr_raw.append(PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms))
+                PopRateSig_Int_raw = rawfile.rawfile.root.PopRateSig_Int_raw
                 PopRateSig_Int_raw.append(PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
+                SynPP_i = rawfile.rawfile.root.SynPP_i
+                SynPP_i.append(np.array(SynPP.i))
+                SynPP_j = rawfile.rawfile.root.SynPP_j
+                SynPP_j.append(np.array(SynPP.j))
+                SynIP_i = rawfile.rawfile.root.SynIP_i
+                SynIP_i.append(np.array(SynIP.i))
+                SynIP_j = rawfile.rawfile.root.SynIP_j
+                SynIP_j.append(np.array(SynIP.j))
+                SynII_i = rawfile.rawfile.root.SynII_i
+                SynII_i.append(np.array(SynII.i))
+                SynII_j = rawfile.rawfile.root.SynII_j
+                SynII_j.append(np.array(SynII.j))
+                SynPI_i = rawfile.rawfile.root.SynPI_i
+                SynPI_i.append(np.array(SynPI.i))
+                SynPI_j = rawfile.rawfile.root.SynPI_j
+                SynPI_j.append(np.array(SynPI.j))
                 if not monitored==[]:
                     StateM_Pyr, StateM_Int = Monitors['StateM_Pyr'], Monitors['StateM_Int']
-
                     for i,var in enumerate(monitored): 
                         if mon_avg:
-                            locals()[var+'_Pyr'].append(np.array(StateM_Pyr.get_states()[var]).mean(axis=1))
-                            locals()[var+'_Int'].append(np.array(StateM_Int.get_states()[var]).mean(axis=1))
+                            rawfile.get_node('/', name=var+'_Pyr').append(np.array(StateM_Pyr.get_states()[var]).mean(axis=1))
+                            rawfile.get_node('/', name=var+'_Int').append(np.array(StateM_Int.get_states()[var]).mean(axis=1))
                         else:
-                        
-                            locals()[var+'_Pyr'].append(np.array(StateM_Pyr.get_states()[var]))
-                            locals()[var+'_Int'].append(np.array(StateM_Int.get_states()[var]))
-                
+                            rawfile.get_node('/', name=var+'_Pyr').append(np.array(StateM_Pyr.get_states()[var]))
+                            rawfile.get_node('/', name=var+'_Pyr').append(np.array(StateM_Int.get_states()[var]))
+                if monitor_pois:
+                    SpikeM_PoisPyr, PopRateM_PoisPyr, SpikeM_PoisInt, PopRateM_PoisInt = Monitors['SpikeM_PoisPyr'], Monitors['PopRateM_PoisPyr'], Monitors['SpikeM_PoisInt'], Monitors['PopRateM_PoisInt']
+                    SpikeM_t_PoisPyr_raw = rawfile.root.SpikeM_t_PoisPyr_raw
+                    SpikeM_t_PoisPyr_raw.append(np.array(SpikeM_PoisPyr.t/ms)*ms)
+                    SpikeM_i_PoisPyr_raw = rawfile.root.SpikeM_i_PoisPyr_raw
+                    SpikeM_i_PoisPyr_raw.append(np.array(SpikeM_PoisPyr.i))
+                    SpikeM_t_PoisInt_raw = rawfile.root.SpikeM_t_PoisInt_raw
+                    SpikeM_t_PoisInt_raw.append(np.array(SpikeM_PoisInt.t/ms)*ms)
+                    SpikeM_i_PoisInt_raw = rawfile.root.SpikeM_i_PoisInt_raw
+                    SpikeM_i_PoisInt_raw.append(np.array(SpikeM_PoisInt.i))
+                    PopRateSig_PoisPyr_raw = rawfile.root.PopRateSig_PoisPyr_raw
+                    PRPois_Pyr = PopRateM_PoisPyr.smooth_rate(window='gaussian', width=1*ms)
+                    PopRateSig_PoisPyr_raw.append(PRPois_Pyr)
+                    PopRateSig_PoisInt_raw = rawfile.root.PopRateSig_PoisInt_raw
+                    PRPois_Int = PopRateM_PoisInt.smooth_rate(window='gaussian', width=1*ms)
+                    PopRateSig_PoisInt_raw.append(PRPois_Int)
                 if record_vm:
+                    Vm_Pyr = rawfile.root.Vm_Pyr
                     Vm_Pyr.append(StateM_Pyr.get_states()['v_s'][:,0])
                     Vm_Pyr.append(StateM_Pyr.get_states()['v_s'][:,-1])
+                    Vm_Int = rawfile.root.Vm_Int
                     Vm_Int.append(StateM_Int.get_states()['v'][:,0])
                     Vm_Int.append(StateM_Int.get_states()['v'][:,-1])
-                
-            
+                rawfile.close()
+      
     if verbose:
         print('***Finished all simulations successfully***')
             
@@ -749,7 +986,6 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
     if save_raw:
         if verbose:
             print('Saved raw data successfully!')
-        rawfile.close()
     
     if analyze:
         Sims_feats = {'AvgCellRate_Pyr':AvgCellRate_Pyr,
@@ -773,7 +1009,28 @@ def run_multsim(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_
 #####################################################################################
 
 
-def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInp=1, IntInp=1, IPois_As=[1.], IPois_Atype='ramp', IPois_fs=[70], PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, start_time=200, end_time=1000, sim_dt=0.02, monitored=[], mon_avg=True, record_vm=True, mts_win='whole', W=2**12, ws=None, verbose=True, analyze=True, save_analyzed=False, save_raw=False, filename=None):
+def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInp=1, IntInp=1, IPois_As=[1.], IPois_Atype='ramp', IPois_fs=[70], PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, start_time=None, end_time=None, sim_dt=0.02, monitored=[], monitor_pois=False, mon_avg=True, record_vm=True, mts_win='whole', W=2**12, ws=None, verbose=True, analyze=True, save_analyzed=False, save_raw=False, filename=None):
+    '''
+    Runs simulations for all combinations of the provided lists of inhomogenous poisson amplitudes and frequencies and the provided values of inputs to the two populations (pyramidal neurons and interneurons).
+    
+    * Parameters:
+    - analyze: Whether to analyze simulations and extract features
+    - save_analyzed: Whether to sava analysis results in an output file
+    - save_raw: Whether to save raw data of the simulations' recordings
+    - filename: Name of the file underwhich raw/analysis data is saved (name will be appended by 'raw' or 'analysis')
+    [Please refer to the documentation of 'run_network_IP()' for other parameters]
+    
+    * Returns:
+    - Sims_feats: (if 'analyze' is set to true) a dictinary of the different features calculated from the recorded data of all simulations in a matrix form
+    '''
+    
+    if start_time is None:
+        start_time = 0
+    if end_time is None:
+        end_time = runtime
+    
+    if start_time > runtime or end_time > runtime:
+        raise ValueError('Please provide start time and end time within the simulation time window!')
     
     if not any((type(IPois_As) is list, type(IPois_As) is np.ndarray)):
         IPois_As = [IPois_As]
@@ -798,6 +1055,14 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
         SpikeM_i_Int_raw = rawfile.create_vlarray(root, 'SpikeM_i_Int_raw', tables.Float64Atom(shape=()))
         PopRateSig_Pyr_raw = rawfile.create_vlarray(root, 'PopRateSig_Pyr_raw', tables.Float64Atom(shape=()))
         PopRateSig_Int_raw = rawfile.create_vlarray(root, 'PopRateSig_Int_raw', tables.Float64Atom(shape=()))
+        SynPP_i = rawfile.create_vlarray(root, 'SynPP_i', tables.Int32Atom(shape=()))
+        SynPP_j = rawfile.create_vlarray(root, 'SynPP_j', tables.Int32Atom(shape=()))
+        SynIP_i = rawfile.create_vlarray(root, 'SynIP_i', tables.Int32Atom(shape=()))
+        SynIP_j = rawfile.create_vlarray(root, 'SynIP_j', tables.Int32Atom(shape=()))
+        SynII_i = rawfile.create_vlarray(root, 'SynII_i', tables.Int32Atom(shape=()))
+        SynII_j = rawfile.create_vlarray(root, 'SynII_j', tables.Int32Atom(shape=()))
+        SynPI_i = rawfile.create_vlarray(root, 'SynPI_i', tables.Int32Atom(shape=()))
+        SynPI_j = rawfile.create_vlarray(root, 'SynPI_j', tables.Int32Atom(shape=()))
         rawfile.create_carray(root, "IPois_As", obj=IPois_As)
         rawfile.create_carray(root, "IPois_fs", obj=IPois_fs)
         
@@ -809,6 +1074,13 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
                 else:
                     locals()[var+'_Pyr'] = rawfile.create_vlarray(root, var+'_Pyr', tables.Float64Atom(shape=(N_samples, N_p)))
                     locals()[var+'_Int'] = rawfile.create_vlarray(root, var+'_Int', tables.Float64Atom(shape=(N_samples, N_i)))
+        if monitor_pois:
+            SpikeM_t_PoisPyr_raw = rawfile.create_vlarray(root, 'SpikeM_t_PoisPyr_raw', tables.Float64Atom(shape=()))
+            SpikeM_i_PoisPyr_raw = rawfile.create_vlarray(root, 'SpikeM_i_PoisPyr_raw', tables.Float64Atom(shape=()))
+            SpikeM_t_PoisInt_raw = rawfile.create_vlarray(root, 'SpikeM_t_PoisInt_raw', tables.Float64Atom(shape=()))
+            SpikeM_i_PoisInt_raw = rawfile.create_vlarray(root, 'SpikeM_i_PoisInt_raw', tables.Float64Atom(shape=()))
+            PopRateSig_PoisPyr_raw = rawfile.create_vlarray(root, 'PopRateSig_PoisPyr_raw', tables.Float64Atom(shape=()))
+            PopRateSig_PoisInt_raw = rawfile.create_vlarray(root, 'PopRateSig_PoisInt_raw', tables.Float64Atom(shape=()))
     
         if record_vm:
             Vm_Pyr = rawfile.create_vlarray(root, 'Vm_Pyr', tables.Float64Atom(shape=(N_samples)))
@@ -839,7 +1111,7 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
             
             gc.collect()
             
-            Monitors = run_network_IP(N_p=N_p, N_i=N_i, PyrEqs=PyrEqs, IntEqs=IntEqs, PreEqAMPA=PreEqAMPA, PreEqGABA=PreEqGABA, PyrInp=PyrInp, IntInp=IntInp, IPois_A=IP_A, IPois_Atype=IPois_Atype, IPois_f=IP_f, PP_C=PP_C, IP_C=IP_C, II_C=II_C, PI_C=PI_C, runtime=runtime, sim_dt=sim_dt, monitored=monitored, record_vm=record_vm, verbose=verbose, PlotFlag=False)
+            Monitors = run_network_IP(N_p=N_p, N_i=N_i, PyrEqs=PyrEqs, IntEqs=IntEqs, PreEqAMPA=PreEqAMPA, PreEqGABA=PreEqGABA, PyrInp=PyrInp, IntInp=IntInp, IPois_A=IP_A, IPois_Atype=IPois_Atype, IPois_f=IP_f, PP_C=PP_C, IP_C=IP_C, II_C=II_C, PI_C=PI_C, runtime=runtime, sim_dt=sim_dt, monitored=monitored, monitor_pois=monitor_pois, record_vm=record_vm, verbose=verbose, PlotFlag=False)
             
             if analyze:
                 Network_feats = analyze_network(Monitors, comp_phase=comp_phase, N_p=N_p, N_i=N_i, start_time=start_time, end_time=end_time, sim_dt=sim_dt, mts_win=mts_win, W=W, ws=ws)
@@ -850,34 +1122,74 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
                     PhaseShift_Pyr[pi,ii], PhaseShift_Int[pi,ii] = Network_feats['PhaseShift_Pyr'], Network_feats['PhaseShift_Int']
                 
             if save_raw:
-                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int']
-                
+                SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int, SynPP, SynIP, SynII, SynPI = Monitors['SpikeM_Pyr'], Monitors['PopRateM_Pyr'], Monitors['SpikeM_Int'], Monitors['PopRateM_Int'], Monnitors['SynPP'], Monnitors['SynIP'], Monnitors['SynII'], Monnitors['SynPI']
+
+                rawfile = tables.open_file(filename+'_raw.h5', mode='a')
+                Params = rawfile.root.Params
                 Params.append(str((PyrInp, IntInp)))
+                SpikeM_t_Pyr_raw = rawfile.root.SpikeM_t_Pyr_raw
                 SpikeM_t_Pyr_raw.append(np.array(SpikeM_Pyr.t/ms)*ms)
+                SpikeM_i_Pyr_raw = rawfile.root.SpikeM_i_Pyr_raw
                 SpikeM_i_Pyr_raw.append(np.array(SpikeM_Pyr.i))
+                SpikeM_t_Int_raw = rawfile.rawfile.root.SpikeM_t_Int_raw
                 SpikeM_t_Int_raw.append(np.array(SpikeM_Int.t/ms)*ms)
+                SpikeM_i_Int_raw = rawfile.rawfile.root.SpikeM_i_Int_raw
                 SpikeM_i_Int_raw.append(np.array(SpikeM_Int.i))
+                
+                PopRateSig_Pyr_raw = rawfile.rawfile.root.PopRateSig_Pyr_raw
                 PopRateSig_Pyr_raw.append(PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms))
+                PopRateSig_Int_raw = rawfile.rawfile.root.PopRateSig_Int_raw
                 PopRateSig_Int_raw.append(PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
+                SynPP_i = rawfile.rawfile.root.SynPP_i
+                SynPP_i.append(np.array(SynPP.i))
+                SynPP_j = rawfile.rawfile.root.SynPP_j
+                SynPP_j.append(np.array(SynPP.j))
+                SynIP_i = rawfile.rawfile.root.SynIP_i
+                SynIP_i.append(np.array(SynIP.i))
+                SynIP_j = rawfile.rawfile.root.SynIP_j
+                SynIP_j.append(np.array(SynIP.j))
+                SynII_i = rawfile.rawfile.root.SynII_i
+                SynII_i.append(np.array(SynII.i))
+                SynII_j = rawfile.rawfile.root.SynII_j
+                SynII_j.append(np.array(SynII.j))
+                SynPI_i = rawfile.rawfile.root.SynPI_i
+                SynPI_i.append(np.array(SynPI.i))
+                SynPI_j = rawfile.rawfile.root.SynPI_j
+                SynPI_j.append(np.array(SynPI.j))
                 if not monitored==[]:
                     StateM_Pyr, StateM_Int = Monitors['StateM_Pyr'], Monitors['StateM_Int']
-                    
                     for i,var in enumerate(monitored): 
                         if mon_avg:
-                            locals()[var+'_Pyr'].append(np.array(StateM_Pyr.get_states()[var]).mean(axis=1))
-                            locals()[var+'_Int'].append(np.array(StateM_Int.get_states()[var]).mean(axis=1))
+                            rawfile.get_node('/', name=var+'_Pyr').append(np.array(StateM_Pyr.get_states()[var]).mean(axis=1))
+                            rawfile.get_node('/', name=var+'_Int').append(np.array(StateM_Int.get_states()[var]).mean(axis=1))
                         else:
-                        
-                            locals()[var+'_Pyr'].append(np.array(StateM_Pyr.get_states()[var]))
-                            locals()[var+'_Int'].append(np.array(StateM_Int.get_states()[var]))
-                
+                            rawfile.get_node('/', name=var+'_Pyr').append(np.array(StateM_Pyr.get_states()[var]))
+                            rawfile.get_node('/', name=var+'_Pyr').append(np.array(StateM_Int.get_states()[var]))
+                if monitor_pois:
+                    SpikeM_PoisPyr, PopRateM_PoisPyr, SpikeM_PoisInt, PopRateM_PoisInt = Monitors['SpikeM_PoisPyr'], Monitors['PopRateM_PoisPyr'], Monitors['SpikeM_PoisInt'], Monitors['PopRateM_PoisInt']
+                    SpikeM_t_PoisPyr_raw = rawfile.root.SpikeM_t_PoisPyr_raw
+                    SpikeM_t_PoisPyr_raw.append(np.array(SpikeM_PoisPyr.t/ms)*ms)
+                    SpikeM_i_PoisPyr_raw = rawfile.root.SpikeM_i_PoisPyr_raw
+                    SpikeM_i_PoisPyr_raw.append(np.array(SpikeM_PoisPyr.i))
+                    SpikeM_t_PoisInt_raw = rawfile.root.SpikeM_t_PoisInt_raw
+                    SpikeM_t_PoisInt_raw.append(np.array(SpikeM_PoisInt.t/ms)*ms)
+                    SpikeM_i_PoisInt_raw = rawfile.root.SpikeM_i_PoisInt_raw
+                    SpikeM_i_PoisInt_raw.append(np.array(SpikeM_PoisInt.i))
+                    PopRateSig_PoisPyr_raw = rawfile.root.PopRateSig_PoisPyr_raw
+                    PRPois_Pyr = PopRateM_PoisPyr.smooth_rate(window='gaussian', width=1*ms)
+                    PopRateSig_PoisPyr_raw.append(PRPois_Pyr)
+                    PopRateSig_PoisInt_raw = rawfile.root.PopRateSig_PoisInt_raw
+                    PRPois_Int = PopRateM_PoisInt.smooth_rate(window='gaussian', width=1*ms)
+                    PopRateSig_PoisInt_raw.append(PRPois_Int)
                 if record_vm:
+                    Vm_Pyr = rawfile.root.Vm_Pyr
                     Vm_Pyr.append(StateM_Pyr.get_states()['v_s'][:,0])
                     Vm_Pyr.append(StateM_Pyr.get_states()['v_s'][:,-1])
+                    Vm_Int = rawfile.root.Vm_Int
                     Vm_Int.append(StateM_Int.get_states()['v'][:,0])
                     Vm_Int.append(StateM_Int.get_states()['v'][:,-1])
-                
-            
+                rawfile.close()
+        
     if verbose:
         print('***Finished all simulations successfully***')
             
@@ -929,7 +1241,30 @@ def run_multsim_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=Pre
 #####################################################################################
 
 
-def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=1000, sim_dt=0.02, comp_phase=False, mts_win='whole', W=2**12, ws=None, verbose=False, PlotFlag=False, plot_file=None, out_file=None):
+def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=None, end_time=None, sim_dt=0.02, comp_phase=False, mts_win='whole', W=2**12, ws=None, verbose=False, PlotFlag=False, plot_file=None, out_file=None):
+    '''
+    Analyzes a pre-simulated network and extracts various features using the raw data saved under the provided file name
+    
+    * Parameters:
+    - filename: The directory of the file under which raw data of the simulations are saved
+    - mode: type of the inputs used in the simulations ('Homogenous' or 'Inhomogenous')
+    - N_p: Number of pyramidal neurons in the simulated network
+    - N_i: Number of interneurons in the simulated network
+    - start_time: Beginning time of analysis within the simulation time [ms]
+    - end_time: Ending time of analysis within the simulation time [ms]
+    - sim_dt: Time step used in the simulation [ms]
+    - comp_phase: Whether to include phase shift calculations between of AMPA and GABA currents
+    - mts_win: Whether to calculate the spectrum for the whole recording or as an average of moving window spectrums
+    - W: Window length for the calculation of the multi-taper spectrum
+    - ws: Sliding step of the moving window for muti-taper spectrum estimation
+    - verbose: Whether to print progress texts during the analysis
+    - PlotFlag: Whether to plot the results of the analysis
+    - plot_file: Directory of the image file under which the results' plot is to be saved
+    - out_file: Directory of the output file under which the analysis results are to be saved
+    
+    * Returns:
+    - Sims_feats: A dictinary of the different features calculated from the recorded data of all simulations
+    '''
     
     sim_dt *= ms
     
@@ -960,6 +1295,15 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=100
         I_GABA_Int_list = rawfile.root.IsynI_Int.read()
         
     rawfile.close()
+    
+    runtime = len(PopRateSig_Pyr_list[0])*sim_dt/ms
+    if start_time is None:
+        start_time = 0
+    if end_time is None:
+        end_time = runtime
+    
+    if start_time > runtime or end_time > runtime:
+        raise ValueError('Please provide start time and end time within the simulation time window!')
         
     AvgCellRate_Pyr = np.zeros((len(IterArray1),len(IterArray2)))
     SynchFreq_Pyr = np.zeros_like(AvgCellRate_Pyr)
@@ -1256,696 +1600,3 @@ def analyze_raw(filename, mode, N_p=4000, N_i=1000, start_time=200, end_time=100
         plot_results(IterArray1, IterArray2, mode, Sims_feats, plot_file)
    
     return Sims_feats
-    
-#####################################################################################
-
-
-def plot_results(IterArray1, IterArray2, mode, Sims_feats, out_file=None):
-    
-    AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int = Sims_feats['AvgCellRate_Pyr'], Sims_feats['SynchFreq_Pyr'], Sims_feats['SynchFreqPow_Pyr'], Sims_feats['PkWidth_Pyr'], Sims_feats['Harmonics_Pyr'], Sims_feats['SynchMeasure_Pyr'], Sims_feats['AvgCellRate_Int'], Sims_feats['SynchFreq_Int'], Sims_feats['SynchFreqPow_Int'], Sims_feats['PkWidth_Int'], Sims_feats['Harmonics_Int'], Sims_feats['SynchMeasure_Int']
-    
-    if Sims_feats.has_key('PhaseShift_Pyr') and Sims_feats.has_key('PhaseShift_Int'):
-        nrows = 7
-        PhaseShift_Pyr, PhaseShift_Int = Sims_feats['PhaseShift_Pyr'], Sims_feats['PhaseShift_Int']    
-    else:
-        nrows = 6
-    ncolumns = 2
-    
-    figure(figsize=[5*ncolumns,4*nrows])
-    
-    if mode is 'Homogenous':
-        extent_entries = [IterArray1[0]/kHz, IterArray1[-1]/kHz, IterArray2[0]/kHz, IterArray2[-1]/kHz]
-        xlabel_txt = 'Pyr. Input (kHz)'
-        ylabel_txt = 'Int. Input (kHz)'
-    else:
-        extent_entries = [IterArray1[0], IterArray1[-1], IterArray2[0]*Hz, IterArray2[-1]*Hz]
-        xlabel_txt = 'Inh. Pois. Freq. (Hz)'
-        ylabel_txt = 'Inh. Pois. Amplitude'
-
-    SynchFreq_NonNans = np.concatenate([SynchFreq_Pyr[~np.isnan(SynchFreq_Pyr)], SynchFreq_Int[~np.isnan(SynchFreq_Int)]])
-    subplot(nrows,ncolumns,1)
-    imshow(SynchFreq_Pyr.T, origin='lower', cmap='jet',
-           vmin = np.min(SynchFreq_NonNans), vmax = np.max(SynchFreq_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    title('AMPA_dl=1.5ms, GABA_dl=0.5ms (from Pyr.)')
-    cb = colorbar()
-    cb.set_label('Synch. Freq. (Hz)')
-
-    subplot(nrows,ncolumns,2)
-    imshow(SynchFreq_Int.T, origin='lower', cmap='jet',
-           vmin = np.min(SynchFreq_NonNans), vmax = np.max(SynchFreq_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    title('AMPA_dl=1.5ms, GABA_dl=0.5ms (from Int.)')
-    cb = colorbar()
-    cb.set_label('Synch. Freq. (Hz)')
-
-    SynchFreqPow_NonNans = np.concatenate([np.log(SynchFreqPow_Pyr[~np.isnan(SynchFreqPow_Pyr)]), np.log(SynchFreqPow_Int[~np.isnan(SynchFreqPow_Int)])])
-    subplot(nrows,ncolumns,3)
-    imshow(np.log(SynchFreqPow_Pyr.T), origin='lower', cmap='jet',
-           vmin = np.min(SynchFreqPow_NonNans), vmax = np.max(SynchFreqPow_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Log Power')
-
-    subplot(nrows,ncolumns,4)
-    imshow(np.log(SynchFreqPow_Int.T), origin='lower', cmap='jet',
-           vmin = np.min(SynchFreqPow_NonNans), vmax = np.max(SynchFreqPow_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Log Power')
-
-    AvgCellRate_NonNans = np.concatenate([AvgCellRate_Pyr[~np.isnan(AvgCellRate_Pyr)], AvgCellRate_Int[~np.isnan(AvgCellRate_Int)]])
-    subplot(nrows,ncolumns,5)
-    imshow(AvgCellRate_Pyr.T, origin='lower', cmap='jet',
-           vmin = np.min(AvgCellRate_NonNans), vmax = np.max(AvgCellRate_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Avg. Cell Rate (Hz)')
-
-    subplot(nrows,ncolumns,6)
-    imshow(AvgCellRate_Int.T, origin='lower', cmap='jet',
-           vmin = np.min(AvgCellRate_NonNans), vmax = np.max(AvgCellRate_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Avg. Cell Rate (Hz)')
-
-    Harmonics_NonNans = np.concatenate([Harmonics_Pyr[~np.isnan(Harmonics_Pyr)], Harmonics_Int[~np.isnan(Harmonics_Int)]])
-    subplot(nrows,ncolumns,7)
-    imshow(Harmonics_Pyr.T, origin='lower', cmap='jet',
-           vmin = np.min(Harmonics_NonNans), vmax = np.max(Harmonics_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('# of Harmonics')
-
-    subplot(nrows,ncolumns,8)
-    imshow(Harmonics_Int.T, origin='lower', cmap='jet',
-           vmin = np.min(Harmonics_NonNans), vmax = np.max(Harmonics_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('# of Harmonics')
-
-    PkWidth_NonNans = np.concatenate([PkWidth_Pyr[~np.isnan(PkWidth_Pyr)], PkWidth_Int[~np.isnan(PkWidth_Int)]])
-    subplot(nrows,ncolumns,9)
-    imshow(PkWidth_Pyr.T, origin='lower', cmap='jet',
-           vmin = np.min(PkWidth_NonNans), vmax = np.max(PkWidth_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Pk Width (Hz)')
-
-    subplot(nrows,ncolumns,10)
-    imshow(PkWidth_Int.T, origin='lower', cmap='jet',
-           vmin = np.min(PkWidth_NonNans), vmax = np.max(PkWidth_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Pk Width (Hz)')
-
-    SynchMeasure_NonNans = np.concatenate([SynchMeasure_Pyr[~np.isnan(SynchMeasure_Pyr)], SynchMeasure_Int[~np.isnan(SynchMeasure_Int)]])
-    subplot(nrows,ncolumns,11)
-    imshow(SynchMeasure_Pyr.T, origin='lower', cmap='jet',
-           vmin = np.min(SynchMeasure_NonNans), vmax = np.max(SynchMeasure_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Synch. Measure')
-
-    subplot(nrows,ncolumns,12)
-    imshow(SynchMeasure_Int.T, origin='lower', cmap='jet',
-           vmin = np.min(SynchMeasure_NonNans), vmax = np.max(SynchMeasure_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Synch. Measure')
-    
-    if not (PhaseShift_Pyr is None):
-        PhaseShift_NonNans = np.concatenate([PhaseShift_Pyr[~np.isnan(PhaseShift_Pyr)], PhaseShift_Int[~np.isnan(PhaseShift_Int)]])
-        subplot(nrows,ncolumns,13)
-        imshow(PhaseShift_Pyr.T, origin='lower', cmap='jet',
-               vmin = np.min(PhaseShift_NonNans), vmax = np.max(PhaseShift_NonNans),
-               extent=extent_entries)
-        xlabel(xlabel_txt)
-        ylabel(ylabel_txt)
-        cb = colorbar()
-        cb.set_label('Phase Shift')
-        subplot(nrows,ncolumns,14)
-        imshow(PhaseShift_Int.T, origin='lower', cmap='jet',
-               vmin = np.min(PhaseShift_NonNans), vmax = np.max(PhaseShift_NonNans),
-               extent=extent_entries)
-        xlabel(xlabel_txt)
-        ylabel(ylabel_txt)
-        cb = colorbar()
-        cb.set_label('Phase Shift')
-        
-
-    if not (out_file is None):
-        savefig(out_file+'.png')
-    show()
-    
-#####################################################################################
-
-
-def plot_mts_grid(rawfile, mode, start_time=200, end_time=1000, mts_win='whole', W=2**12, ws=None, sim_dt=0.02, out_file=None):
-    
-    sim_dt *= ms
-    
-    if ws is None:
-        ws = W/10
-    
-    if mode is 'Homogenous':
-        
-        rawfile = tables.open_file(rawfile, mode='r')
-    
-        PyrInps = (rawfile.root.PyrInps.read()/1000)*kHz
-        IntInps = (rawfile.root.IntInps.read()/1000)*kHz
-
-        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr_raw.read()
-        PopRateSig_Int_list = rawfile.root.PopRateSig_Int_raw.read()
-
-        rawfile.close()
-
-        figure(1, figsize=[6*len(PyrInps),5*len(IntInps)])
-        figure(2, figsize=[6*len(PyrInps),5*len(IntInps)])
-
-        fmax = (1/(sim_dt))/2
-    
-        for ii in range(len(IntInps)):
-            ii2 = len(PyrInps)-ii-1
-
-            for pi in range(len(PyrInps)):
-
-                idx = pi*len(IntInps)+ii2
-                sp_idx = ii*len(PyrInps)+pi
-
-                RateSig_Pyr = PopRateSig_Pyr_list[idx][int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
-                RateSig_Pyr -= np.mean(RateSig_Pyr)
-
-                RateSig_Int = PopRateSig_Int_list[idx][int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
-                RateSig_Int -= np.mean(RateSig_Int)
-
-                if mts_win is 'whole':
-
-                    N = RateSig_Pyr.shape[0]
-                    NFFT = 2**(N-1).bit_length()
-                    freq_vect = np.linspace(0, fmax/Hz, NFFT/2)*Hz
-                    freq_vect = freq_vect[np.where(freq_vect/Hz<=300)]
-
-                    a = pmtm(RateSig_Pyr, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                    RateMTS_Pyr = np.mean(abs(a[0])**2 * a[1], axis=0)[:int(NFFT/2)]/N
-                    RateMTS_Pyr = RateMTS_Pyr[np.where(freq_vect/Hz<=300)]
-
-                    a = pmtm(RateSig_Int, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                    RateMTS_Int = np.mean(abs(a[0])**2 * a[1], axis=0)[:int(NFFT/2)]/N
-                    RateMTS_Int = RateMTS_Int[np.where(freq_vect/Hz<=300)]
-
-                else:
-
-                    NFFT=W*2
-                    freq_vect = np.linspace(0, fmax/Hz, NFFT/2)*Hz
-                    freq_vect = freq_vect[np.where(freq_vect/Hz<=300)]
-
-                    N_segs = int((len(RateSig_Pyr) / ws)-(W-ws)/ws +1)
-                    result = np.zeros((NFFT/2))
-                    for i in range(N_segs):
-                        data = RateSig_Pyr[i*ws:i*ws+W]
-                        a = pmtm(data, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                        Sks = np.mean(abs(a[0])**2 * a[1], axis=0)
-                        result += Sks[:NFFT/2]/W
-                    RateMTS_Pyr = result[np.where(freq_vect/Hz<=300)]/N_segs
-
-                    N_segs = int((len(RateSig_Int) / ws)-(W-ws)/ws +1)
-                    result = np.zeros((NFFT/2))
-                    for i in range(N_segs):
-                        data = RateSig_Int[i*ws:i*ws+W]
-                        a = pmtm(data, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                        Sks = np.mean(abs(a[0])**2 * a[1], axis=0)
-                        result += Sks[:NFFT/2]/W
-                    RateMTS_Int = result[np.where(freq_vect/Hz<=300)]/N_segs
-            
-                figure(1)
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
-                plot(freq_vect, RateMTS_Pyr)
-                xlim(0,300)
-                xlabel('Frequency (Hz)')
-                ylabel('Power')
-                title('Pyr. Inp.: %s, Int. Inp.:%s' % (PyrInps[pi], IntInps[ii2]))
-
-                figure(2)
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
-                plot(freq_vect, RateMTS_Int)
-                xlim(0,300)
-                xlabel('Frequency (Hz)')
-                ylabel('Power')
-                title('Pyr. Inp.: %s, Int. Inp.:%s' % (PyrInps[pi], IntInps[ii2]))
-                
-    else:
-        
-        rawfile = tables.open_file(rawfile, mode='r')
-    
-        IPois_As = rawfile.root.IPois_As.read()
-        IPois_fs = (rawfile.root.IPois_fs.read())*Hz
-        
-        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr_raw.read()
-        PopRateSig_Int_list = rawfile.root.PopRateSig_Int_raw.read()
-
-        rawfile.close()
-
-        figure(1, figsize=[6*len(IPois_fs),5*len(IPois_As)])
-        figure(2, figsize=[6*len(IPois_fs),5*len(IPois_As)])
-    
-        fmax = (1/(sim_dt))/2
-        
-        for pi,IP_A in enumerate(IPois_As):
-        
-            for ii,IP_f in enumerate(IPois_fs):
-                
-                idx = pi*len(IPois_fs)+ii
-                
-                RateSig_Pyr = PopRateSig_Pyr_list[idx][int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
-                RateSig_Pyr -= np.mean(RateSig_Pyr)
-
-                RateSig_Int = PopRateSig_Int_list[idx][int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
-                RateSig_Int -= np.mean(RateSig_Int)
-                
-                if mts_win is 'whole':
-
-                    N = RateSig_Pyr.shape[0]
-                    NFFT = 2**(N-1).bit_length()
-                    freq_vect = np.linspace(0, fmax/Hz, NFFT/2)*Hz
-                    freq_vect = freq_vect[np.where(freq_vect/Hz<=300)]
-
-                    a = pmtm(RateSig_Pyr, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                    RateMTS_Pyr = np.mean(abs(a[0])**2 * a[1], axis=0)[:int(NFFT/2)]/N
-                    RateMTS_Pyr = RateMTS_Pyr[np.where(freq_vect/Hz<=300)]
-
-                    a = pmtm(RateSig_Int, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                    RateMTS_Int = np.mean(abs(a[0])**2 * a[1], axis=0)[:int(NFFT/2)]/N
-                    RateMTS_Int = RateMTS_Int[np.where(freq_vect/Hz<=300)]
-
-                else:
-
-                    NFFT=W*2
-                    freq_vect = np.linspace(0, fmax/Hz, NFFT/2)*Hz
-                    freq_vect = freq_vect[np.where(freq_vect/Hz<=300)]
-
-                    N_segs = int((len(RateSig_Pyr) / ws)-(W-ws)/ws +1)
-                    result = np.zeros((NFFT/2))
-                    for i in range(N_segs):
-                        data = RateSig_Pyr[i*ws:i*ws+W]
-                        a = pmtm(data, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                        Sks = np.mean(abs(a[0])**2 * a[1], axis=0)
-                        result += Sks[:NFFT/2]/W
-                    RateMTS_Pyr = result[np.where(freq_vect/Hz<=300)]/N_segs
-
-                    N_segs = int((len(RateSig_Int) / ws)-(W-ws)/ws +1)
-                    result = np.zeros((NFFT/2))
-                    for i in range(N_segs):
-                        data = RateSig_Int[i*ws:i*ws+W]
-                        a = pmtm(data, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                        Sks = np.mean(abs(a[0])**2 * a[1], axis=0)
-                        result += Sks[:NFFT/2]/W
-                    RateMTS_Int = result[np.where(freq_vect/Hz<=300)]/N_segs
-                
-                figure(1)
-                subplot(len(IPois_As), len(IPois_fs), idx+1)
-                plot(freq_vect, RateMTS_Pyr)
-                xlim(0,300)
-                xlabel('Frequency (Hz)')
-                ylabel('Power')
-                title('IP Amp.: %s, IP Freq.:%s' % (IP_A, IP_f))
-
-                figure(2)
-                subplot(len(IPois_As), len(IPois_fs), idx+1)
-                plot(freq_vect, RateMTS_Int)
-                xlim(0,300)
-                xlabel('Frequency (Hz)')
-                ylabel('Power')
-                title('IP Amp.: %s, IP Freq.:%s' % (IP_A, IP_f))
-            
-    if not (out_file is None):
-        figure(1)
-        savefig(out_file+'_Pyr.png')
-        figure(2)
-        savefig(out_file+'_Int.png')
-    
-    show()
-    
-#####################################################################################
-
-
-def plot_spikes_grid(rawfile, mode, start_time=200, end_time=1000, sim_dt=0.02, out_file=None):
-    
-    sim_dt *= ms
-    
-    if mode is 'Homogenous':
-    
-        rawfile = tables.open_file(rawfile, mode='r')
-    
-        PyrInps = (rawfile.root.PyrInps.read()/1000)*kHz
-        IntInps = (rawfile.root.IntInps.read()/1000)*kHz
-    
-        Spike_t_Pyr_list = rawfile.root.SpikeM_t_Pyr_raw.read()
-        Spike_i_Pyr_list = rawfile.root.SpikeM_i_Pyr_raw.read()
-        Spike_t_Int_list = rawfile.root.SpikeM_t_Int_raw.read()
-        Spike_i_Int_list = rawfile.root.SpikeM_i_Int_raw.read()
-    
-        rawfile.close()
-    
-        figure(figsize=[8*len(PyrInps),5*len(IntInps)])
-
-        fmax = (1/(sim_dt))/2
-    
-        for ii in range(len(IntInps)):
-            ii2 = len(PyrInps)-ii-1
-
-            for pi in range(len(PyrInps)):
-
-                idx = pi*len(IntInps)+ii2
-                sp_idx = ii*len(PyrInps)+pi
-            
-                Spike_t_Pyr = Spike_t_Pyr_list[idx]
-                Spike_i_Pyr = Spike_i_Pyr_list[idx]
-                Spike_t_Int = Spike_t_Int_list[idx]
-                Spike_i_Int = Spike_i_Int_list[idx]
-            
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
-                plot(Spike_t_Pyr*1000, Spike_i_Pyr, '.', Spike_t_Int*1000, Spike_i_Int+4000, '.')
-                xlim(start_time, end_time)
-                xlabel('Time (ms)')
-                ylabel('Neuron Index')
-                title('Pyr. Inp.: %s, Int. Inp.:%s' % (PyrInps[pi], IntInps[ii2]))
-                
-    else:
-        
-        rawfile = tables.open_file(rawfile, mode='r')
-    
-        IPois_As = rawfile.root.IPois_As.read()
-        IPois_fs = (rawfile.root.IPois_fs.read())*Hz
-    
-        Spike_t_Pyr_list = rawfile.root.SpikeM_t_Pyr_raw.read()
-        Spike_i_Pyr_list = rawfile.root.SpikeM_i_Pyr_raw.read()
-        Spike_t_Int_list = rawfile.root.SpikeM_t_Int_raw.read()
-        Spike_i_Int_list = rawfile.root.SpikeM_i_Int_raw.read()
-    
-        rawfile.close()
-        
-        figure(figsize=[8*len(IPois_fs),5*len(IPois_As)])
-        
-        fmax = (1/(sim_dt))/2
-        
-        for pi,IP_A in enumerate(IPois_As):
-        
-            for ii,IP_f in enumerate(IPois_fs):
-                
-                idx = pi*len(IPois_fs)+ii
-                
-                Spike_t_Pyr = Spike_t_Pyr_list[idx]
-                Spike_i_Pyr = Spike_i_Pyr_list[idx]
-                Spike_t_Int = Spike_t_Int_list[idx]
-                Spike_i_Int = Spike_i_Int_list[idx]
-            
-                subplot(len(IPois_As), len(IPois_fs), idx+1)
-                plot(Spike_t_Pyr*1000, Spike_i_Pyr, '.', Spike_t_Int*1000, Spike_i_Int+4000, '.')
-                xlim(start_time, end_time)
-                xlabel('Time (ms)')
-                ylabel('Neuron Index')
-                title('IP Amp.: %s, IP Freq.:%s' % (IP_A, IP_f))
-            
-    if not (out_file is None):
-        savefig(out_file+'.png')
-    
-    show()
-    
-#####################################################################################
-
-
-def plot_poprate_grid(rawfile, mode, start_time=200, end_time=1000, sim_dt=0.02, out_file=None):
-    
-    sim_dt *= ms
-    
-    if mode is 'Homogenous':
-        
-        rawfile = tables.open_file(rawfile, mode='r')
-    
-        PyrInps = (rawfile.root.PyrInps.read()/1000)*kHz
-        IntInps = (rawfile.root.IntInps.read()/1000)*kHz
-
-        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr_raw.read()
-        PopRateSig_Int_list = rawfile.root.PopRateSig_Int_raw.read()
-
-        rawfile.close()
-
-        figure(1, figsize=[8*len(PyrInps),5*len(IntInps)])
-        figure(2, figsize=[8*len(PyrInps),5*len(IntInps)])
-    
-        fmax = (1/(sim_dt))/2
-    
-        for ii in range(len(IntInps)):
-            ii2 = len(PyrInps)-ii-1
-
-            for pi in range(len(PyrInps)):
-
-                idx = pi*len(IntInps)+ii2
-                sp_idx = ii*len(PyrInps)+pi
-            
-                RateSig_Pyr = PopRateSig_Pyr_list[idx][int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
-                RateSig_Int = PopRateSig_Int_list[idx][int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
-            
-                time_v = np.linspace(start_time, end_time, len(RateSig_Pyr))
-            
-                figure(1)
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
-                plot(time_v, RateSig_Pyr)
-                xlim(start_time, end_time)
-                xlabel('Time (ms)')
-                ylabel('Inst. Pop. Rate')
-                title('Pyr. Inp.: %s, Int. Inp.:%s' % (PyrInps[pi], IntInps[ii2]))
-            
-                figure(2)
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
-                plot(time_v, RateSig_Int)
-                xlim(start_time, end_time)
-                xlabel('Time (ms)')
-                ylabel('Inst. Pop. Rate')
-                title('Pyr. Inp.: %s, Int. Inp.:%s' % (PyrInps[pi], IntInps[ii2]))
-                
-    else:
-        
-        rawfile = tables.open_file(rawfile, mode='r')
-    
-        IPois_As = rawfile.root.IPois_As.read()
-        IPois_fs = (rawfile.root.IPois_fs.read())*Hz
-        
-        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr_raw.read()
-        PopRateSig_Int_list = rawfile.root.PopRateSig_Int_raw.read()
-
-        rawfile.close()
-
-        figure(1, figsize=[6*len(IPois_fs),5*len(IPois_As)])
-        figure(2, figsize=[6*len(IPois_fs),5*len(IPois_As)])
-    
-        fmax = (1/(sim_dt))/2
-        
-        for pi,IP_A in enumerate(IPois_As):
-        
-            for ii,IP_f in enumerate(IPois_fs):
-                
-                idx = pi*len(IPois_fs)+ii
-                
-                RateSig_Pyr = PopRateSig_Pyr_list[idx][int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
-                RateSig_Int = PopRateSig_Int_list[idx][int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
-            
-                time_v = np.linspace(start_time, end_time, len(RateSig_Pyr))
-            
-                figure(1)
-                subplot(len(IPois_As), len(IPois_fs), idx+1)
-                plot(time_v, RateSig_Pyr)
-                xlim(start_time, end_time)
-                xlabel('Time (ms)')
-                ylabel('Inst. Pop. Rate')
-                title('IP Amp.: %s, IP Freq.:%s' % (IP_A, IP_f))
-            
-                figure(2)
-                subplot(len(IPois_As), len(IPois_fs), idx+1)
-                plot(time_v, RateSig_Int)
-                xlim(start_time, end_time)
-                xlabel('Time (ms)')
-                ylabel('Inst. Pop. Rate')
-                title('IP Amp.: %s, IP Freq.:%s' % (IP_A, IP_f))
-            
-    if not (out_file is None):
-        figure(1)
-        savefig(out_file+'_Pyr.png')
-        figure(2)
-        savefig(out_file+'_Int.png')
-    show()
-    
-#####################################################################################
-
-
-def plot_spcgram_grid(rawfile, mode, start_time=200, end_time=1000, W=2**12, ws=None, sim_dt=0.02, out_file=None):
-    
-    sim_dt *= ms
-    
-    if ws is None:
-        ws = W/10
-    
-    if mode is 'Homogenous':
-        
-        rawfile = tables.open_file(rawfile, mode='r')
-    
-        PyrInps = (rawfile.root.PyrInps.read()/1000)*kHz
-        IntInps = (rawfile.root.IntInps.read()/1000)*kHz
-
-        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr_raw.read()
-        PopRateSig_Int_list = rawfile.root.PopRateSig_Int_raw.read()
-
-        rawfile.close()
-
-        figure(1, figsize=[6*len(PyrInps),5*len(IntInps)])
-        figure(2, figsize=[6*len(PyrInps),5*len(IntInps)])
-    
-        fmax = (1/(sim_dt))/2
-    
-        for ii in range(len(IntInps)):
-            ii2 = len(PyrInps)-ii-1
-
-            for pi in range(len(PyrInps)):
-
-                idx = pi*len(IntInps)+ii2
-                sp_idx = ii*len(PyrInps)+pi
-
-                RateSig_Pyr = PopRateSig_Pyr_list[idx][int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
-                RateSig_Pyr -= np.mean(RateSig_Pyr)
-
-                RateSig_Int = PopRateSig_Int_list[idx][int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
-                RateSig_Int -= np.mean(RateSig_Int)
-
-                NFFT=W*2
-                freq_vect = np.linspace(0, fmax/Hz, NFFT/2)*Hz
-                freq_vect = freq_vect[np.where(freq_vect/Hz<=300)]
-
-                N_segs = int((len(RateSig_Pyr) / ws)-(W-ws)/ws +1)
-                RateMTS_Pyr = np.zeros((NFFT/2, N_segs))
-                for i in range(N_segs):
-                    data = RateSig_Pyr[i*ws:i*ws+W]
-                    a = pmtm(data, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                    Sks = np.mean(abs(a[0])**2 * a[1], axis=0)
-                    RateMTS_Pyr[:,i] = Sks[:NFFT/2]/W
-                RateMTS_Pyr = np.squeeze(RateMTS_Pyr[np.where(freq_vect/Hz<=300),:])
-
-                N_segs = int((len(RateSig_Int) / ws)-(W-ws)/ws +1)
-                RateMTS_Int = np.zeros((NFFT/2, N_segs))
-                for i in range(N_segs):
-                    data = RateSig_Int[i*ws:i*ws+W]
-                    a = pmtm(data, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                    Sks = np.mean(abs(a[0])**2 * a[1], axis=0)
-                    RateMTS_Int[:,i] = Sks[:NFFT/2]/W
-                RateMTS_Int = np.squeeze(RateMTS_Int[np.where(freq_vect/Hz<=300),:])
-            
-                figure(1)
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
-                imshow(RateMTS_Pyr, origin="lower",extent=[start_time, end_time, freq_vect[0]/Hz, freq_vect[-1]/Hz], aspect="auto", cmap='jet')
-                xlabel('Time (ms)')
-                ylabel('Frequency (Hz)')
-                title('Pyr. Inp.: %s, Int. Inp.:%s' % (PyrInps[pi], IntInps[ii2]))
-
-                figure(2)
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
-                imshow(RateMTS_Int, origin="lower",extent=[start_time, end_time, freq_vect[0]/Hz, freq_vect[-1]/Hz], aspect="auto", cmap='jet')
-                xlabel('Time (ms)')
-                ylabel('Frequency (Hz)')
-                title('Pyr. Inp.: %s, Int. Inp.:%s' % (PyrInps[pi], IntInps[ii2]))
-        
-    else:
-        
-        rawfile = tables.open_file(rawfile, mode='r')
-    
-        IPois_As = rawfile.root.IPois_As.read()
-        IPois_fs = (rawfile.root.IPois_fs.read())*Hz
-        
-        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr_raw.read()
-        PopRateSig_Int_list = rawfile.root.PopRateSig_Int_raw.read()
-
-        rawfile.close()
-
-        figure(1, figsize=[6*len(IPois_fs),5*len(IPois_As)])
-        figure(2, figsize=[6*len(IPois_fs),5*len(IPois_As)])
-    
-        fmax = (1/(sim_dt))/2
-        
-        for pi,IP_A in enumerate(IPois_As):
-        
-            for ii,IP_f in enumerate(IPois_fs):
-                
-                idx = pi*len(IPois_fs)+ii
-                
-                RateSig_Pyr = PopRateSig_Pyr_list[idx][int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
-                RateSig_Pyr -= np.mean(RateSig_Pyr)
-
-                RateSig_Int = PopRateSig_Int_list[idx][int(start_time*ms/sim_dt):int(end_time*ms/sim_dt)]
-                RateSig_Int -= np.mean(RateSig_Int)
-                
-                NFFT=W*2
-                freq_vect = np.linspace(0, fmax/Hz, NFFT/2)*Hz
-                freq_vect = freq_vect[np.where(freq_vect/Hz<=300)]
-
-                N_segs = int((len(RateSig_Pyr) / ws)-(W-ws)/ws +1)
-                RateMTS_Pyr = np.zeros((NFFT/2, N_segs))
-                for i in range(N_segs):
-                    data = RateSig_Pyr[i*ws:i*ws+W]
-                    a = pmtm(data, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                    Sks = np.mean(abs(a[0])**2 * a[1], axis=0)
-                    RateMTS_Pyr[:,i] = Sks[:NFFT/2]/W
-                RateMTS_Pyr = np.squeeze(RateMTS_Pyr[np.where(freq_vect/Hz<=300),:])
-
-                N_segs = int((len(RateSig_Int) / ws)-(W-ws)/ws +1)
-                RateMTS_Int = np.zeros((NFFT/2, N_segs))
-                for i in range(N_segs):
-                    data = RateSig_Int[i*ws:i*ws+W]
-                    a = pmtm(data, NFFT=NFFT, NW=2.5, method='eigen', show=False)
-                    Sks = np.mean(abs(a[0])**2 * a[1], axis=0)
-                    RateMTS_Int[:,i] = Sks[:NFFT/2]/W
-                RateMTS_Int = np.squeeze(RateMTS_Int[np.where(freq_vect/Hz<=300),:])
-                
-                figure(1)
-                subplot(len(IPois_As), len(IPois_fs), idx+1)
-                imshow(RateMTS_Pyr, origin="lower",extent=[start_time, end_time, freq_vect[0]/Hz, freq_vect[-1]/Hz], aspect="auto", cmap='jet')
-                xlabel('Time (ms)')
-                ylabel('Frequency (Hz)')
-                title('IP Amp.: %s, IP Freq.:%s' % (IP_A, IP_f))
-
-                figure(2)
-                subplot(len(IPois_As), len(IPois_fs), idx+1)
-                imshow(RateMTS_Int, origin="lower",extent=[start_time, end_time, freq_vect[0]/Hz, freq_vect[-1]/Hz], aspect="auto", cmap='jet')
-                xlabel('Time (ms)')
-                ylabel('Frequency (Hz)')
-                title('IP Amp.: %s, IP Freq.:%s' % (IP_A, IP_f))
-
-    if not (out_file is None):
-        figure(1)
-        savefig(out_file+'_Pyr.png')
-        figure(2)
-        savefig(out_file+'_Int.png')
-    
-    show()

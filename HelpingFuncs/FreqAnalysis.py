@@ -31,7 +31,7 @@ def comp_mtspectrogram(Signal, fs, W, ws=None, NFFT=None, freq_limit=None, norma
         result[:,i] = Sks[:NFFT/2]/W
         
     if not freq_limit is None:
-        Signal_MTS = np.squeeze(result[np.where(freq_vect<=300),:])
+        Signal_MTS = np.squeeze(result[np.where(freq_vect<=freq_limit),:])
     else:
         Signal_MTS = np.squeeze(result)
     

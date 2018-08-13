@@ -1,6 +1,11 @@
 import numpy as np
 
-def findpeaks(xarray, x_mindist=5., maxima_minval=0., minima=False, minima_maxval=0.):
+def findpeaks(xarray, x_mindist=0., maxima_minval=None, minima=False, minima_maxval=None):
+    
+    if maxima_minval is None:
+        maxima_minval = -np.inf
+    if minima_maxval is None:
+        minima_maxval = np.inf
 
     pk_inds = np.where(np.diff(xarray)*np.roll(np.diff(xarray),1)<=0)[0]
     
