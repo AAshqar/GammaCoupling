@@ -185,7 +185,7 @@ IsynI = gGABA_i*synI*(v-eSyn_i) : amp
 dsynI/dt = alphas_GABA*x_GABA - synI/decay_GABA : 1
 dx_GABA/dt = -x_GABA/rise_GABA : 1
 
-Iext : amp
+Iext = Iext_Arr(t) : amp
 
 m = alpham/(alpham+betam) : 1
 dn/dt = 5*(alphan*(1-n) - betan*n) : 1
