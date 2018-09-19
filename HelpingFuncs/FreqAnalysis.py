@@ -5,24 +5,24 @@ import matplotlib.pyplot as plt
 def comp_mtspectrogram(Signal, fs, W, ws=None, NFFT=None, freq_limit=None, normalize=True, NW=2.5, PlotFlag=True):
     
     N = int(len(Signal))
-    T = (N/fs)*1000
+    T = (N/fs)*1000.
     
     if normalize:
         Signal -= np.mean(Signal)
 
     if ws is None:
-        ws = W/10
+        ws = int(np.round(W/10.))
     
     if NFFT is None:
         NFFT = W*2
         
-    fmax = fs/2
+    fmax = np.round(fs/2.)
     
     freq_vect = np.linspace(0, fmax, NFFT/2)
     if not freq_limit is None:
         freq_vect = freq_vect[np.where(freq_vect<=freq_limit)]
     
-    N_segs = int((N / ws)-(W-ws)/ws +1)
+    N_segs = int((N-W)/ws+2)
     result = np.zeros((NFFT/2, N_segs))
     for i in range(N_segs):
         data = Signal[i*ws:i*ws+W]

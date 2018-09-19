@@ -8,7 +8,7 @@ from HelpingFuncs.peakdetect import peakdet
 
 #####################################################################################
 
-def plot_results(IterArray1, IterArray2, mode, Sims_feats, out_file=None):
+def plot_results(Sims_feats, IterArray1, IterArray2, mode, out_file=None):
     
     AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int = Sims_feats['AvgCellRate_Pyr'], Sims_feats['SynchFreq_Pyr'], Sims_feats['SynchFreqPow_Pyr'], Sims_feats['PkWidth_Pyr'], Sims_feats['Harmonics_Pyr'], Sims_feats['SynchMeasure_Pyr'], Sims_feats['AvgCellRate_Int'], Sims_feats['SynchFreq_Int'], Sims_feats['SynchFreqPow_Int'], Sims_feats['PkWidth_Int'], Sims_feats['Harmonics_Int'], Sims_feats['SynchMeasure_Int']
     
@@ -187,8 +187,8 @@ def plot_mts_grid(rawfile, mode, start_time=None, end_time=None, mts_win='whole'
         PyrInps = (rawfile.root.PyrInps.read()/1000)*kHz
         IntInps = (rawfile.root.IntInps.read()/1000)*kHz
 
-        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr_raw.read()
-        PopRateSig_Int_list = rawfile.root.PopRateSig_Int_raw.read()
+        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr.read()
+        PopRateSig_Int_list = rawfile.root.PopRateSig_Int.read()
 
         rawfile.close()
 
@@ -207,7 +207,7 @@ def plot_mts_grid(rawfile, mode, start_time=None, end_time=None, mts_win='whole'
             raise ValueError('Please provide start time and end time within the simulation time window!')
     
         for ii in range(len(IntInps)):
-            ii2 = len(PyrInps)-ii-1
+            ii2 = len(IntInps)-ii-1
 
             for pi in range(len(PyrInps)):
 
@@ -260,7 +260,7 @@ def plot_mts_grid(rawfile, mode, start_time=None, end_time=None, mts_win='whole'
                     RateMTS_Int = result[np.where(freq_vect/Hz<=300)]/N_segs
             
                 figure(1)
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
+                subplot(len(IntInps), len(PyrInps), sp_idx+1)
                 plot(freq_vect, RateMTS_Pyr)
                 xlim(0,300)
                 xlabel('Frequency (Hz)')
@@ -268,7 +268,7 @@ def plot_mts_grid(rawfile, mode, start_time=None, end_time=None, mts_win='whole'
                 title('Pyr. Inp.: %s, Int. Inp.:%s' % (PyrInps[pi], IntInps[ii2]))
 
                 figure(2)
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
+                subplot(len(IntInps), len(PyrInps), sp_idx+1)
                 plot(freq_vect, RateMTS_Int)
                 xlim(0,300)
                 xlabel('Frequency (Hz)')
@@ -282,8 +282,8 @@ def plot_mts_grid(rawfile, mode, start_time=None, end_time=None, mts_win='whole'
         IPois_As = rawfile.root.IPois_As.read()
         IPois_fs = (rawfile.root.IPois_fs.read())*Hz
         
-        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr_raw.read()
-        PopRateSig_Int_list = rawfile.root.PopRateSig_Int_raw.read()
+        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr.read()
+        PopRateSig_Int_list = rawfile.root.PopRateSig_Int.read()
 
         rawfile.close()
 
@@ -390,10 +390,10 @@ def plot_spikes_grid(rawfile, mode, start_time=None, end_time=None, sim_dt=0.02,
         PyrInps = (rawfile.root.PyrInps.read()/1000)*kHz
         IntInps = (rawfile.root.IntInps.read()/1000)*kHz
     
-        Spike_t_Pyr_list = rawfile.root.SpikeM_t_Pyr_raw.read()
-        Spike_i_Pyr_list = rawfile.root.SpikeM_i_Pyr_raw.read()
-        Spike_t_Int_list = rawfile.root.SpikeM_t_Int_raw.read()
-        Spike_i_Int_list = rawfile.root.SpikeM_i_Int_raw.read()
+        Spike_t_Pyr_list = rawfile.root.SpikeM_t_Pyr.read()
+        Spike_i_Pyr_list = rawfile.root.SpikeM_i_Pyr.read()
+        Spike_t_Int_list = rawfile.root.SpikeM_t_Int.read()
+        Spike_i_Int_list = rawfile.root.SpikeM_i_Int.read()
     
         rawfile.close()
     
@@ -403,7 +403,7 @@ def plot_spikes_grid(rawfile, mode, start_time=None, end_time=None, sim_dt=0.02,
 
     
         for ii in range(len(IntInps)):
-            ii2 = len(PyrInps)-ii-1
+            ii2 = len(IntInps)-ii-1
 
             for pi in range(len(PyrInps)):
 
@@ -430,10 +430,10 @@ def plot_spikes_grid(rawfile, mode, start_time=None, end_time=None, sim_dt=0.02,
         IPois_As = rawfile.root.IPois_As.read()
         IPois_fs = (rawfile.root.IPois_fs.read())*Hz
     
-        Spike_t_Pyr_list = rawfile.root.SpikeM_t_Pyr_raw.read()
-        Spike_i_Pyr_list = rawfile.root.SpikeM_i_Pyr_raw.read()
-        Spike_t_Int_list = rawfile.root.SpikeM_t_Int_raw.read()
-        Spike_i_Int_list = rawfile.root.SpikeM_i_Int_raw.read()
+        Spike_t_Pyr_list = rawfile.root.SpikeM_t_Pyr.read()
+        Spike_i_Pyr_list = rawfile.root.SpikeM_i_Pyr.read()
+        Spike_t_Int_list = rawfile.root.SpikeM_t_Int.read()
+        Spike_i_Int_list = rawfile.root.SpikeM_i_Int.read()
     
         rawfile.close()
         
@@ -455,7 +455,8 @@ def plot_spikes_grid(rawfile, mode, start_time=None, end_time=None, sim_dt=0.02,
                 subplot(len(IPois_As), len(IPois_fs), idx+1)
                 plot(Spike_t_Pyr*1000, Spike_i_Pyr, '.', Spike_t_Int*1000, Spike_i_Int+4000, '.')
                 if all((not start_time is None, not end_time is None)):
-                    xlim(start_time, end_time)                xlabel('Time (ms)')
+                    xlim(start_time, end_time)
+                xlabel('Time (ms)')
                 ylabel('Neuron Index')
                 title('IP Amp.: %s, IP Freq.:%s' % (IP_A, IP_f))
             
@@ -478,8 +479,8 @@ def plot_poprate_grid(rawfile, mode, start_time=None, end_time=None, sim_dt=0.02
         PyrInps = (rawfile.root.PyrInps.read()/1000)*kHz
         IntInps = (rawfile.root.IntInps.read()/1000)*kHz
 
-        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr_raw.read()
-        PopRateSig_Int_list = rawfile.root.PopRateSig_Int_raw.read()
+        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr.read()
+        PopRateSig_Int_list = rawfile.root.PopRateSig_Int.read()
 
         rawfile.close()
 
@@ -498,7 +499,7 @@ def plot_poprate_grid(rawfile, mode, start_time=None, end_time=None, sim_dt=0.02
             raise ValueError('Please provide start time and end time within the simulation time window!')
     
         for ii in range(len(IntInps)):
-            ii2 = len(PyrInps)-ii-1
+            ii2 = len(IntInps)-ii-1
 
             for pi in range(len(PyrInps)):
 
@@ -511,7 +512,7 @@ def plot_poprate_grid(rawfile, mode, start_time=None, end_time=None, sim_dt=0.02
                 time_v = np.linspace(start_time, end_time, len(RateSig_Pyr))
             
                 figure(1)
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
+                subplot(len(IntInps), len(PyrInps), sp_idx+1)
                 plot(time_v, RateSig_Pyr)
                 xlim(start_time, end_time)
                 xlabel('Time (ms)')
@@ -519,7 +520,7 @@ def plot_poprate_grid(rawfile, mode, start_time=None, end_time=None, sim_dt=0.02
                 title('Pyr. Inp.: %s, Int. Inp.:%s' % (PyrInps[pi], IntInps[ii2]))
             
                 figure(2)
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
+                subplot(len(IntInps), len(PyrInps), sp_idx+1)
                 plot(time_v, RateSig_Int)
                 xlim(start_time, end_time)
                 xlabel('Time (ms)')
@@ -533,8 +534,8 @@ def plot_poprate_grid(rawfile, mode, start_time=None, end_time=None, sim_dt=0.02
         IPois_As = rawfile.root.IPois_As.read()
         IPois_fs = (rawfile.root.IPois_fs.read())*Hz
         
-        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr_raw.read()
-        PopRateSig_Int_list = rawfile.root.PopRateSig_Int_raw.read()
+        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr.read()
+        PopRateSig_Int_list = rawfile.root.PopRateSig_Int.read()
 
         rawfile.close()
 
@@ -603,8 +604,8 @@ def plot_spcgram_grid(rawfile, mode, start_time=None, end_time=None, W=2**12, ws
         PyrInps = (rawfile.root.PyrInps.read()/1000)*kHz
         IntInps = (rawfile.root.IntInps.read()/1000)*kHz
 
-        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr_raw.read()
-        PopRateSig_Int_list = rawfile.root.PopRateSig_Int_raw.read()
+        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr.read()
+        PopRateSig_Int_list = rawfile.root.PopRateSig_Int.read()
 
         rawfile.close()
 
@@ -623,7 +624,7 @@ def plot_spcgram_grid(rawfile, mode, start_time=None, end_time=None, W=2**12, ws
             raise ValueError('Please provide start time and end time within the simulation time window!')
     
         for ii in range(len(IntInps)):
-            ii2 = len(PyrInps)-ii-1
+            ii2 = len(IntInps)-ii-1
 
             for pi in range(len(PyrInps)):
 
@@ -659,14 +660,14 @@ def plot_spcgram_grid(rawfile, mode, start_time=None, end_time=None, W=2**12, ws
                 RateMTS_Int = np.squeeze(RateMTS_Int[np.where(freq_vect/Hz<=300),:])
             
                 figure(1)
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
+                subplot(len(IntInps), len(PyrInps), sp_idx+1)
                 imshow(RateMTS_Pyr, origin="lower",extent=[start_time, end_time, freq_vect[0]/Hz, freq_vect[-1]/Hz], aspect="auto", cmap='jet')
                 xlabel('Time (ms)')
                 ylabel('Frequency (Hz)')
                 title('Pyr. Inp.: %s, Int. Inp.:%s' % (PyrInps[pi], IntInps[ii2]))
 
                 figure(2)
-                subplot(len(PyrInps), len(IntInps), sp_idx+1)
+                subplot(len(IntInps), len(PyrInps), sp_idx+1)
                 imshow(RateMTS_Int, origin="lower",extent=[start_time, end_time, freq_vect[0]/Hz, freq_vect[-1]/Hz], aspect="auto", cmap='jet')
                 xlabel('Time (ms)')
                 ylabel('Frequency (Hz)')
@@ -679,8 +680,8 @@ def plot_spcgram_grid(rawfile, mode, start_time=None, end_time=None, W=2**12, ws
         IPois_As = rawfile.root.IPois_As.read()
         IPois_fs = (rawfile.root.IPois_fs.read())*Hz
         
-        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr_raw.read()
-        PopRateSig_Int_list = rawfile.root.PopRateSig_Int_raw.read()
+        PopRateSig_Pyr_list = rawfile.root.PopRateSig_Pyr.read()
+        PopRateSig_Int_list = rawfile.root.PopRateSig_Int.read()
 
         rawfile.close()
 
