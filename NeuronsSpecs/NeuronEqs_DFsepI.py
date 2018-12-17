@@ -1,7 +1,6 @@
 from brian2 import *
 
 
-
 PreEq_AMPA = '''
 x_AMPA += alphax
 '''
@@ -11,12 +10,12 @@ x_GABA += alphax
 '''
 
 PreEq_AMPA_pois = '''
-x_AMPA += 1.5*alphax
+x_AMPA_ext += 1.5*alphax
 '''
 
 eqs_P = '''
 
-dv_d/dt = (-Il_d - Ica_d - I_AHP - IsynP - I_ds + Iext_d)/(C_p) : volt
+dv_d/dt = (-Il_d -Ica_d -I_AHP -IsynP -IsynP_ext -I_ds +Iext_d)/(C_p) : volt
 Il_d = gL_p*(v_d-eL_p) : amp
 Ica_d = gCa_p*(m2**2)*(v_d-eCa_p) : amp
 I_AHP = gAHP*(C_Ca/(C_Ca+Kd))*(v_d-eK_p) : amp
@@ -25,12 +24,15 @@ I_ds = gCP/(1.0-p)*(v_d-v_s) : amp
 
 Iext_d : amp
 
-IsynP = gAMPA_p*synP*(v_s-eSyn_p) : amp
+IsynP = gAMPA_p*synP*(v_d-eSyn_p) : amp
 dsynP/dt = alphas_AMPA*x_AMPA - synP/decay_AMPA : 1
 dx_AMPA/dt = -x_AMPA/rise_AMPA : 1
 
-m2 = 1/(1+exp(-(v_d+20*mV)/(9.0*mV))) : 1
+IsynP_ext = gAMPA_p*synP_ext*(v_d-eSyn_p) : amp
+dsynP_ext/dt = alphas_AMPA*x_AMPA_ext - synP_ext/decay_AMPA : 1
+dx_AMPA_ext/dt = -x_AMPA_ext/rise_AMPA : 1
 
+m2 = 1/(1+exp(-(v_d+20*mV)/(9.0*mV))) : 1
 
 dv_s/dt = (-Il_s - Ina_s - Ik_s - IsynI - I_sd + Iext_s)/C_p : volt
 Il_s = gL_p*(v_s-eL_p) : amp
@@ -59,7 +61,7 @@ betan = 0.125*exp(-(v_s+44*mV)/(25*mV))/ms : Hz
 
 eqs_I = '''
 
-dv/dt = (-Il - Ina - Ik - IsynP - IsynI + Iext)/C_i : volt
+dv/dt = (-Il -Ina -Ik -IsynP -IsynP_ext -IsynI +Iext)/C_i : volt
 Il = gL_i*(v-eL_i) : amp
 Ina = gNa_i*(m**3)*h*(v-eNa_i) : amp
 Ik = gK_i*(n**4)*(v-eK_i) : amp
@@ -67,6 +69,10 @@ Ik = gK_i*(n**4)*(v-eK_i) : amp
 IsynP = gAMPA_i*synP*(v-eSyn_p) : amp
 dsynP/dt = alphas_AMPA*x_AMPA - synP/decay_AMPA : 1
 dx_AMPA/dt = -x_AMPA/rise_AMPA : 1
+
+IsynP_ext = gAMPA_i*synP_ext*(v-eSyn_p) : amp
+dsynP_ext/dt = alphas_AMPA*x_AMPA_ext - synP_ext/decay_AMPA : 1
+dx_AMPA_ext/dt = -x_AMPA_ext/rise_AMPA : 1
 
 IsynI = gGABA_i*synI*(v-eSyn_i) : amp
 dsynI/dt = alphas_GABA*x_GABA - synI/decay_GABA : 1
@@ -94,7 +100,26 @@ betan = 0.125*exp(-(v+44*mV)/(80*mV))/ms : Hz
 
 eqs_PS = '''
 
-dv_s/dt = (-Il_s - Ina_s - Ik_s - I_sd - IsynI + Iext_s)/C_p : volt
+dv_d/dt = (-Il_d -Ica_d -I_AHP -IsynP -IsynP_ext -I_ds +Iext_d)/(C_p) : volt
+Il_d = gL_p*(v_d-eL_p) : amp
+Ica_d = gCa_p*(m2**2)*(v_d-eCa_p) : amp
+I_AHP = gAHP*(C_Ca/(C_Ca+Kd))*(v_d-eK_p) : amp
+dC_Ca/dt = -4*(umolar/(ms*uamp))*Ica_d - C_Ca/tau_ca : mmolar
+I_ds = gCP/(1.0-p)*(v_d-v_s) : amp
+
+Iext_d = Iext_d_Arr(t) : amp
+
+IsynP = gAMPA_p*synP*(v_d-eSyn_p) : amp
+dsynP/dt = alphas_AMPA*x_AMPA - synP/decay_AMPA : 1
+dx_AMPA/dt = -x_AMPA/rise_AMPA : 1
+
+IsynP_ext = gAMPA_p*synP_ext*(v_d-eSyn_p) : amp
+dsynP_ext/dt = alphas_AMPA*x_AMPA_ext - synP_ext/decay_AMPA : 1
+dx_AMPA_ext/dt = -x_AMPA_ext/rise_AMPA : 1
+
+m2 = 1/(1+exp(-(v_d+20*mV)/(9.0*mV))) : 1
+
+dv_s/dt = (-Il_s - Ina_s - Ik_s - IsynI - I_sd + Iext_s)/C_p : volt
 Il_s = gL_p*(v_s-eL_p) : amp
 Ina_s = gNa_p*(m**3)*h*(v_s-eNa_p) : amp
 Ik_s = gK_p*(n**4)*(v_s-eK_p) : amp
@@ -104,8 +129,9 @@ IsynI = gGABA_p*synI*(v_s-eSyn_i) : amp
 dsynI/dt = alphas_GABA*x_GABA - synI/decay_GABA : 1
 dx_GABA/dt = -x_GABA/rise_GABA : 1
 
+
 Iext_s = Iext_s_Arr(t) : amp
- 
+
 m = alpham/(alpham+betam) : 1
 dn/dt = 4*(alphan*(1-n) - betan*n) : 1
 dh/dt = 4*(alphah*(1-h) - betah*h) : 1
@@ -117,26 +143,11 @@ betah = 1/(exp(-(v_s+20*mV)/(10*mV))+1)/ms : Hz
 alphan = (-0.01/mV) * (v_s+34*mV) / (exp(-(v_s+34*mV)/(10*mV)) - 1)/ms : Hz
 betan = 0.125*exp(-(v_s+44*mV)/(25*mV))/ms : Hz
 
-dv_d/dt = (-Il_d - Ica_d - I_AHP - IsynP - I_ds + Iext_d)/(C_p) : volt
-Il_d = gL_p*(v_d-eL_p) : amp
-Ica_d = gCa_p*(m2**2)*(v_d-eCa_p) : amp
-I_AHP = gAHP*(C_Ca/(C_Ca+Kd))*(v_d-eK_p) : amp
-dC_Ca/dt = -4*(umolar/(ms*uamp))*Ica_d - C_Ca/tau_ca : mmolar
-I_ds = gCP/(1.0-p)*(v_d-v_s) : amp
-
-IsynP = gAMPA_p*synP*(v_s-eSyn_p) : amp
-dsynP/dt = alphas_AMPA*x_AMPA - synP/decay_AMPA : 1
-dx_AMPA/dt = -x_AMPA/rise_AMPA : 1
-
-Iext_d = Iext_d_Arr(t) : amp
-
-m2 = 1/(1+exp(-(v_d+20*mV)/(9.0*mV))) : 1
-
 '''
 
 eqs_IS = '''
 
-dv/dt = (-Il - Ina - Ik - IsynP - IsynI + Iext)/C_i : volt
+dv/dt = (-Il -Ina -Ik -IsynP -IsynP_ext -IsynI +Iext)/C_i : volt
 Il = gL_i*(v-eL_i) : amp
 Ina = gNa_i*(m**3)*h*(v-eNa_i) : amp
 Ik = gK_i*(n**4)*(v-eK_i) : amp
@@ -144,6 +155,10 @@ Ik = gK_i*(n**4)*(v-eK_i) : amp
 IsynP = gAMPA_i*synP*(v-eSyn_p) : amp
 dsynP/dt = alphas_AMPA*x_AMPA - synP/decay_AMPA : 1
 dx_AMPA/dt = -x_AMPA/rise_AMPA : 1
+
+IsynP_ext = gAMPA_i*synP_ext*(v-eSyn_p) : amp
+dsynP_ext/dt = alphas_AMPA*x_AMPA_ext - synP_ext/decay_AMPA : 1
+dx_AMPA_ext/dt = -x_AMPA_ext/rise_AMPA : 1
 
 IsynI = gGABA_i*synI*(v-eSyn_i) : amp
 dsynI/dt = alphas_GABA*x_GABA - synI/decay_GABA : 1

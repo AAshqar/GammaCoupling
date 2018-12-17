@@ -10,161 +10,75 @@ from HelpingFuncs.peakdetect import peakdet
 
 def plot_results(Sims_feats, IterArray1, IterArray2, mode, out_file=None):
     
-    AvgCellRate_Pyr, SynchFreq_Pyr, SynchFreqPow_Pyr, PkWidth_Pyr, Harmonics_Pyr, SynchMeasure_Pyr, AvgCellRate_Int, SynchFreq_Int, SynchFreqPow_Int, PkWidth_Int, Harmonics_Int, SynchMeasure_Int = Sims_feats['AvgCellRate_Pyr'], Sims_feats['SynchFreq_Pyr'], Sims_feats['SynchFreqPow_Pyr'], Sims_feats['PkWidth_Pyr'], Sims_feats['Harmonics_Pyr'], Sims_feats['SynchMeasure_Pyr'], Sims_feats['AvgCellRate_Int'], Sims_feats['SynchFreq_Int'], Sims_feats['SynchFreqPow_Int'], Sims_feats['PkWidth_Int'], Sims_feats['Harmonics_Int'], Sims_feats['SynchMeasure_Int']
+    SimsFeats_Pyr = [Sims_feats['SynchFreq_Pyr'], np.log(Sims_feats['SynchFreqPow_Pyr']), Sims_feats['AvgCellRate_Pyr'], Sims_feats['PkWidth_Pyr'], Sims_feats['Harmonics_Pyr'], Sims_feats['SynchMeasure_Pyr']]
     
-    if Sims_feats.has_key('PhaseShift_Pyr') and Sims_feats.has_key('PhaseShift_Int'):
-        nrows = 7
-        PhaseShift_Pyr, PhaseShift_Int = Sims_feats['PhaseShift_Pyr'], Sims_feats['PhaseShift_Int']    
-    else:
-        nrows = 6
-    ncolumns = 2
+    SimsFeats_Int = [Sims_feats['SynchFreq_Int'], np.log(Sims_feats['SynchFreqPow_Int']), Sims_feats['AvgCellRate_Int'], Sims_feats['PkWidth_Int'], Sims_feats['Harmonics_Int'], Sims_feats['SynchMeasure_Int']]
     
-    figure(figsize=[5*ncolumns,4*nrows])
+    SimsFeats_Full = [Sims_feats['SynchFreq_Full'], np.log(Sims_feats['SynchFreqPow_Full']), Sims_feats['AvgCellRate_Full'], Sims_feats['PkWidth_Full'], Sims_feats['Harmonics_Full'], Sims_feats['SynchMeasure_Full'], Sims_feats['PhaseShift_PyrInt']]
+    
+    labels = ['Synch. Freq. (Hz)', 'Log Power', 'Avg. Cell Rate (Hz)', 'Pk Width (Hz)', '# of Harmonics', 'Synch. Measure', 'PR Phase Shift']
+    
+    if Sims_feats.has_key('PhaseShiftCurr_Pyr'):
+        SimsFeats_Pyr.append(Sims_feats['PhaseShiftCurr_Pyr'])
+        SimsFeats_Int.append(Sims_feats['PhaseShiftCurr_Int'])
+        SimsFeats_Full.append(Sims_feats['PhaseShiftCurr_Full'])
+        labels.append('Syn. Currents Phase Shift')
+        
+    nrows = len(labels)
+    ncolumns = 3
+    
+    figure(figsize=[6*ncolumns,6*nrows])
     
     if mode is 'Homogenous':
-        extent_entries = [IterArray1[0]/kHz, IterArray1[-1]/kHz, IterArray2[0]/kHz, IterArray2[-1]/kHz]
+        extent_entries = [IterArray1[0], IterArray1[-1], IterArray2[0], IterArray2[-1]]
         xlabel_txt = 'Pyr. Input (kHz)'
         ylabel_txt = 'Int. Input (kHz)'
     else:
         extent_entries = [IterArray1[0], IterArray1[-1], IterArray2[0]*Hz, IterArray2[-1]*Hz]
         xlabel_txt = 'Inh. Pois. Freq. (Hz)'
         ylabel_txt = 'Inh. Pois. Amplitude'
-
-    SynchFreq_NonNans = np.concatenate([SynchFreq_Pyr[~np.isnan(SynchFreq_Pyr)], SynchFreq_Int[~np.isnan(SynchFreq_Int)]])
-    subplot(nrows,ncolumns,1)
-    imshow(SynchFreq_Pyr.T, origin='lower', cmap='jet',
-           vmin = np.min(SynchFreq_NonNans), vmax = np.max(SynchFreq_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    title('AMPA_dl=1.5ms, GABA_dl=0.5ms (from Pyr.)')
-    cb = colorbar()
-    cb.set_label('Synch. Freq. (Hz)')
-
-    subplot(nrows,ncolumns,2)
-    imshow(SynchFreq_Int.T, origin='lower', cmap='jet',
-           vmin = np.min(SynchFreq_NonNans), vmax = np.max(SynchFreq_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    title('AMPA_dl=1.5ms, GABA_dl=0.5ms (from Int.)')
-    cb = colorbar()
-    cb.set_label('Synch. Freq. (Hz)')
-
-    SynchFreqPow_NonNans = np.concatenate([np.log(SynchFreqPow_Pyr[~np.isnan(SynchFreqPow_Pyr)]), np.log(SynchFreqPow_Int[~np.isnan(SynchFreqPow_Int)])])
-    subplot(nrows,ncolumns,3)
-    imshow(np.log(SynchFreqPow_Pyr.T), origin='lower', cmap='jet',
-           vmin = np.min(SynchFreqPow_NonNans), vmax = np.max(SynchFreqPow_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Log Power')
-
-    subplot(nrows,ncolumns,4)
-    imshow(np.log(SynchFreqPow_Int.T), origin='lower', cmap='jet',
-           vmin = np.min(SynchFreqPow_NonNans), vmax = np.max(SynchFreqPow_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Log Power')
-
-    AvgCellRate_NonNans = np.concatenate([AvgCellRate_Pyr[~np.isnan(AvgCellRate_Pyr)], AvgCellRate_Int[~np.isnan(AvgCellRate_Int)]])
-    subplot(nrows,ncolumns,5)
-    imshow(AvgCellRate_Pyr.T, origin='lower', cmap='jet',
-           vmin = np.min(AvgCellRate_NonNans), vmax = np.max(AvgCellRate_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Avg. Cell Rate (Hz)')
-
-    subplot(nrows,ncolumns,6)
-    imshow(AvgCellRate_Int.T, origin='lower', cmap='jet',
-           vmin = np.min(AvgCellRate_NonNans), vmax = np.max(AvgCellRate_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Avg. Cell Rate (Hz)')
-
-    Harmonics_NonNans = np.concatenate([Harmonics_Pyr[~np.isnan(Harmonics_Pyr)], Harmonics_Int[~np.isnan(Harmonics_Int)]])
-    subplot(nrows,ncolumns,7)
-    imshow(Harmonics_Pyr.T, origin='lower', cmap='jet',
-           vmin = np.min(Harmonics_NonNans), vmax = np.max(Harmonics_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('# of Harmonics')
-
-    subplot(nrows,ncolumns,8)
-    imshow(Harmonics_Int.T, origin='lower', cmap='jet',
-           vmin = np.min(Harmonics_NonNans), vmax = np.max(Harmonics_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('# of Harmonics')
-
-    PkWidth_NonNans = np.concatenate([PkWidth_Pyr[~np.isnan(PkWidth_Pyr)], PkWidth_Int[~np.isnan(PkWidth_Int)]])
-    subplot(nrows,ncolumns,9)
-    imshow(PkWidth_Pyr.T, origin='lower', cmap='jet',
-           vmin = np.min(PkWidth_NonNans), vmax = np.max(PkWidth_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Pk Width (Hz)')
-
-    subplot(nrows,ncolumns,10)
-    imshow(PkWidth_Int.T, origin='lower', cmap='jet',
-           vmin = np.min(PkWidth_NonNans), vmax = np.max(PkWidth_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Pk Width (Hz)')
-
-    SynchMeasure_NonNans = np.concatenate([SynchMeasure_Pyr[~np.isnan(SynchMeasure_Pyr)], SynchMeasure_Int[~np.isnan(SynchMeasure_Int)]])
-    subplot(nrows,ncolumns,11)
-    imshow(SynchMeasure_Pyr.T, origin='lower', cmap='jet',
-           vmin = np.min(SynchMeasure_NonNans), vmax = np.max(SynchMeasure_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Synch. Measure')
-
-    subplot(nrows,ncolumns,12)
-    imshow(SynchMeasure_Int.T, origin='lower', cmap='jet',
-           vmin = np.min(SynchMeasure_NonNans), vmax = np.max(SynchMeasure_NonNans),
-           extent=extent_entries)
-    xlabel(xlabel_txt)
-    ylabel(ylabel_txt)
-    cb = colorbar()
-    cb.set_label('Synch. Measure')
     
-    if not (PhaseShift_Pyr is None):
-        PhaseShift_NonNans = np.concatenate([PhaseShift_Pyr[~np.isnan(PhaseShift_Pyr)], PhaseShift_Int[~np.isnan(PhaseShift_Int)]])
-        subplot(nrows,ncolumns,13)
-        imshow(PhaseShift_Pyr.T, origin='lower', cmap='jet',
-               vmin = np.min(PhaseShift_NonNans), vmax = np.max(PhaseShift_NonNans),
-               extent=extent_entries)
-        xlabel(xlabel_txt)
-        ylabel(ylabel_txt)
-        cb = colorbar()
-        cb.set_label('Phase Shift')
-        subplot(nrows,ncolumns,14)
-        imshow(PhaseShift_Int.T, origin='lower', cmap='jet',
-               vmin = np.min(PhaseShift_NonNans), vmax = np.max(PhaseShift_NonNans),
-               extent=extent_entries)
-        xlabel(xlabel_txt)
-        ylabel(ylabel_txt)
-        cb = colorbar()
-        cb.set_label('Phase Shift')
+    spind = 1
+    for fi in range(len(labels)):
         
+        if labels[fi]=='PR Phase Shift':
+            feat_nonnans = SimsFeats_Full[fi][~np.isnan(SimsFeats_Full[fi])]
+        
+        else:
+            
+            feat_nonnans = np.concatenate([SimsFeats_Pyr[fi][~np.isnan(SimsFeats_Pyr[fi])], SimsFeats_Int[fi][~np.isnan(SimsFeats_Int[fi])], SimsFeats_Full[fi][~np.isnan(SimsFeats_Full[fi])]])
+            
+            subplot(nrows,ncolumns,spind)
+            imshow(SimsFeats_Pyr[fi].T, origin='lower', cmap='jet',
+                   vmin = np.min(feat_nonnans), vmax = np.max(feat_nonnans),
+                   extent=extent_entries)
+            xlabel(xlabel_txt)
+            ylabel(ylabel_txt)
+            title('AMPA_dl=1.5ms, GABA_dl=0.5ms (from Pyr.)')
+            cb = colorbar()
+            cb.set_label(labels[fi])
+
+            subplot(nrows,ncolumns,spind+1)
+            imshow(SimsFeats_Int[fi].T, origin='lower', cmap='jet',
+                   vmin = np.min(feat_nonnans), vmax = np.max(feat_nonnans),
+                   extent=extent_entries)
+            xlabel(xlabel_txt)
+            ylabel(ylabel_txt)
+            title('AMPA_dl=1.5ms, GABA_dl=0.5ms (from Int.)')
+            cb = colorbar()
+            cb.set_label(labels[fi])
+        
+        subplot(nrows,ncolumns,spind+2)
+        imshow(SimsFeats_Full[fi].T, origin='lower', cmap='jet',
+               vmin = np.min(feat_nonnans), vmax = np.max(feat_nonnans),
+               extent=extent_entries)
+        xlabel(xlabel_txt)
+        ylabel(ylabel_txt)
+        title('AMPA_dl=1.5ms, GABA_dl=0.5ms (from Full)')
+        cb = colorbar()
+        cb.set_label(labels[fi])
+        
+        spind += 3
 
     if not (out_file is None):
         savefig(out_file+'.png')
@@ -172,6 +86,162 @@ def plot_results(Sims_feats, IterArray1, IterArray2, mode, out_file=None):
     
 #####################################################################################
 
+def plot_results_modes(Sims_feats, IterArray1, IterArray2, mode='Homogenous', out_file=None, CurrPhSh=False):
+    
+    if type(Sims_feats) is str:
+        featsf = tables.open_file(Sims_feats, 'r')
+        SynchFreq_Pyr = {'PING': featsf.root.SynchFreqPING_Pyr.read(),
+                         'ING': featsf.root.SynchFreqING_Pyr.read()}
+        SynchFreqPow_Pyr = {'PING': np.log(featsf.root.SynchFreqPowPING_Pyr.read()),
+                            'ING': np.log(featsf.root.SynchFreqPowING_Pyr.read())}
+        PhaseShift_Pyr = {'PING': featsf.root.PhaseShiftPING_Pyr.read(),
+                          'ING': featsf.root.PhaseShiftING_Pyr.read()}
+        AvgCellRate_Pyr = featsf.root.AvgCellRate_Pyr.read()
+        SynchMeasure_Pyr = featsf.root.SynchMeasure_Pyr.read()
+        
+        SimsFeats_Pyr = [SynchFreq_Pyr, SynchFreqPow_Pyr, PhaseShift_Pyr, AvgCellRate_Pyr, SynchMeasure_Pyr]
+        
+        SynchFreq_Int = {'PING': featsf.root.SynchFreqPING_Int.read(),
+                         'ING': featsf.root.SynchFreqING_Int.read()}
+        SynchFreqPow_Int = {'PING': np.log(featsf.root.SynchFreqPowPING_Int.read()),
+                            'ING': np.log(featsf.root.SynchFreqPowING_Int.read())}
+        PhaseShift_Int = {'PING': featsf.root.PhaseShiftPING_Int.read(),
+                          'ING': featsf.root.PhaseShiftING_Int.read()}
+        AvgCellRate_Int = featsf.root.AvgCellRate_Int.read()
+        SynchMeasure_Int = featsf.root.SynchMeasure_Int.read()
+
+        SimsFeats_Int = [SynchFreq_Int, SynchFreqPow_Int, PhaseShift_Int, AvgCellRate_Int, SynchMeasure_Int]
+        
+        labels = ['Synch. Freq. (Hz)', 'Log Power', 'PR Phase Shift', 'Avg. Cell Rate (Hz)', 'Synch. Measure']
+        
+        if CurrPhSh:
+            PhaseShiftCurr_Pyr = {'PING': featsf.root.PhaseShiftCurrPING_Pyr.read(),
+                                  'ING': featsf.root.PhaseShiftCurrING_Pyr.read()}
+            PhaseShiftCurr_Int = {'PING': featsf.root.PhaseShiftCurrPING_Int.read(),
+                                  'ING': featsf.root.PhaseShiftCurrING_Int.read()}
+            SimsFeats_Pyr.append(PhaseShiftCurr_Pyr)
+            SimsFeats_Int.append(PhaseShiftCurr_Int)
+            labels.append('Syn. Currents Phase Shift')
+    else:
+        
+        SynchFreqPow_Pyr = {'PING': np.log(Sims_feats['SynchFreqPow_Pyr']['PING']),
+                            'ING': np.log(Sims_feats['SynchFreqPow_Pyr']['ING'])}
+        SynchFreqPow_Int = {'PING': np.log(Sims_feats['SynchFreqPow_Int']['PING']),
+                            'ING': np.log(Sims_feats['SynchFreqPow_Int']['ING'])}
+        
+        SimsFeats_Pyr = [Sims_feats['SynchFreq_Pyr'], SynchFreqPow_Pyr, Sims_feats['PhaseShift_Pyr'], Sims_feats['AvgCellRate_Pyr'], Sims_feats['SynchMeasure_Pyr']]
+
+        SimsFeats_Int = [Sims_feats['SynchFreq_Int'], SynchFreqPow_Int, Sims_feats['PhaseShift_Int'], Sims_feats['AvgCellRate_Int'], Sims_feats['SynchMeasure_Int']]
+        
+        labels = ['Synch. Freq. (Hz)', 'Log Power', 'PR Phase Shift', 'Avg. Cell Rate (Hz)', 'Synch. Measure']
+        
+        if CurrPhSh:
+            SimsFeats_Pyr.append(Sims_feats['PhaseShiftCurr_Pyr'])
+            SimsFeats_Int.append(Sims_feats['PhaseShiftCurr_Int'])
+            labels.append('Syn. Currents Phase Shift')
+    
+
+    nrows = len(labels)
+    ncolumns = 4
+    
+    figure(figsize=[6*ncolumns,6*nrows])
+    
+    if mode is 'Homogenous':
+        extent_entries = [IterArray1[0], IterArray1[-1], IterArray2[0], IterArray2[-1]]
+        xlabel_txt = 'Pyr. Input (kHz)'
+        ylabel_txt = 'Int. Input (kHz)'
+    else:
+        extent_entries = [IterArray1[0], IterArray1[-1], IterArray2[0]*Hz, IterArray2[-1]*Hz]
+        xlabel_txt = 'Inh. Pois. Freq. (Hz)'
+        ylabel_txt = 'Inh. Pois. Amplitude'
+    
+    spind = 1
+    for fi in range(len(labels)):
+        
+        if fi<=2:
+            
+            feat_nonnans = np.concatenate([SimsFeats_Pyr[fi]['PING'][~np.isnan(SimsFeats_Pyr[fi]['PING'])],
+                                           SimsFeats_Pyr[fi]['ING'][~np.isnan(SimsFeats_Pyr[fi]['ING'])],
+                                           SimsFeats_Int[fi]['PING'][~np.isnan(SimsFeats_Int[fi]['PING'])],
+                                           SimsFeats_Int[fi]['ING'][~np.isnan(SimsFeats_Int[fi]['ING'])]])
+            
+            feat_nonnans = np.sort(feat_nonnans)
+            feat_nonnans = feat_nonnans[int(0.025*len(feat_nonnans)):int(0.975*len(feat_nonnans))]
+
+            subplot(nrows,ncolumns,spind)
+            imshow(SimsFeats_Pyr[fi]['ING'].T, origin='lower', cmap='jet',
+                   vmin = np.min(feat_nonnans), vmax = np.max(feat_nonnans),
+                   extent=extent_entries)
+            xlabel(xlabel_txt)
+            ylabel(ylabel_txt)
+            title('Pyramidals Population (ING Bursts)')
+            cb = colorbar()
+            cb.set_label(labels[fi])
+
+            subplot(nrows,ncolumns,spind+1)
+            imshow(SimsFeats_Pyr[fi]['PING'].T, origin='lower', cmap='jet',
+                   vmin = np.min(feat_nonnans), vmax = np.max(feat_nonnans),
+                   extent=extent_entries)
+            xlabel(xlabel_txt)
+            ylabel(ylabel_txt)
+            title('Pyramidals Population (PING Bursts)')
+            cb = colorbar()
+            cb.set_label(labels[fi])
+
+            subplot(nrows,ncolumns,spind+2)
+            imshow(SimsFeats_Int[fi]['ING'].T, origin='lower', cmap='jet',
+                   vmin = np.min(feat_nonnans), vmax = np.max(feat_nonnans),
+                   extent=extent_entries)
+            xlabel(xlabel_txt)
+            ylabel(ylabel_txt)
+            title('Interneurons Population (ING Bursts)')
+            cb = colorbar()
+            cb.set_label(labels[fi])
+
+            subplot(nrows,ncolumns,spind+3)
+            imshow(SimsFeats_Int[fi]['PING'].T, origin='lower', cmap='jet',
+                   vmin = np.min(feat_nonnans), vmax = np.max(feat_nonnans),
+                   extent=extent_entries)
+            xlabel(xlabel_txt)
+            ylabel(ylabel_txt)
+            title('Interneurons Population (PING Bursts)')
+            cb = colorbar()
+            cb.set_label(labels[fi])
+            
+        else:
+            
+            feat_nonnans = np.concatenate([SimsFeats_Pyr[fi][~np.isnan(SimsFeats_Pyr[fi])], SimsFeats_Int[fi][~np.isnan(SimsFeats_Int[fi])]])
+            
+            feat_nonnans = np.sort(feat_nonnans)
+            feat_nonnans = feat_nonnans[int(0.025*len(feat_nonnans)):int(0.975*len(feat_nonnans))]
+            
+            subplot(nrows,ncolumns,spind+1)
+            imshow(SimsFeats_Pyr[fi].T, origin='lower', cmap='jet',
+                   vmin = np.min(feat_nonnans), vmax = np.max(feat_nonnans),
+                   extent=extent_entries)
+            xlabel(xlabel_txt)
+            ylabel(ylabel_txt)
+            title('Pyramidals Population')
+            cb = colorbar()
+            cb.set_label(labels[fi])
+            
+            subplot(nrows,ncolumns,spind+3)
+            imshow(SimsFeats_Int[fi].T, origin='lower', cmap='jet',
+                   vmin = np.min(feat_nonnans), vmax = np.max(feat_nonnans),
+                   extent=extent_entries)
+            xlabel(xlabel_txt)
+            ylabel(ylabel_txt)
+            title('Interneurons Population')
+            cb = colorbar()
+            cb.set_label(labels[fi])
+
+        spind += 4
+
+    if not (out_file is None):
+        savefig(out_file+'.png')
+    show()
+    
+#####################################################################################
 
 def plot_mts_grid(rawfile, mode, start_time=None, end_time=None, mts_win='whole', W=2**12, ws=None, sim_dt=0.02, out_file=None):
     
