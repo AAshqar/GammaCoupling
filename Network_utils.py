@@ -20,7 +20,7 @@ import copy
 #####################################################################################
 
 
-def run_network(N_p=4000, N_i=1000, SilencePyrs=None, SilenceInts=None, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInp=1, IntInp=1, PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, sim_dt=0.02, SynConns=None, SaveSynns=False, monitored=[], monitors_dt=0.2, avgoneurons=True, avgotime=False, avgotimest=10, monitor_pois=False, record_vm=False, save_raw=False, filename=None, verbose=True, PlotFlag=False):
+def sim_network(N_p=4000, N_i=1000, SilencePyrs=None, SilenceInts=None, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInp=1, IntInp=1, PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, sim_dt=0.02, SynConns=None, SaveSynns=False, monitored=[], monitors_dt=0.2, avgoneurons=True, avgotime=False, avgotimest=10, monitor_pois=False, record_vm=False, save_raw=False, filename=None, verbose=True, PlotFlag=False):
     '''
     Simulates a network consisting of the desired number of pyramidal neurons and interneurons with dynamics described by predefined set of equations.
     
@@ -31,8 +31,8 @@ def run_network(N_p=4000, N_i=1000, SilencePyrs=None, SilenceInts=None, PyrEqs=e
     - IntEqs: Equations to use for the interneurons population
     - PreEqAMPA: Equations to use for AMPA (excitatory) synapses
     - PreEqGABA: Equations to use for GABA (inhibitory) synapses
-    - PyrInp: Poisson input rate to the pyramidal neurons [kHz]
-    - IntInp: Poisson input rate to the interneurons [kHz]
+    - PyrInp: The poisson input to the pyramidal population. Should be either a single value [kHz] to model a homogenous Poisson input, or a function that takes a time vector as an input and returns an inhomogenous Poisson signal
+    - IntInp: The poisson input to the interneuron population. Should be either a single value [kHz] to model a homogenous Poisson input, or a function that takes a time vector as an input and returns an inhomogenous Poisson signal
     - PP_C: Pyramidal-pyramidal Connectivity
     - IP_C: Interneuron-pyramidal Connectivity
     - II_C: Interneuron-interneuron Connectivity
@@ -54,9 +54,6 @@ def run_network(N_p=4000, N_i=1000, SilencePyrs=None, SilenceInts=None, PyrEqs=e
     runtime *= ms
     sim_dt *= ms
     monitors_dt *= ms
-    
-    PyrInp *= kHz
-    IntInp *= kHz
     
     if verbose:
         print('Setting up the network...')
@@ -98,12 +95,27 @@ def run_network(N_p=4000, N_i=1000, SilencePyrs=None, SilenceInts=None, PyrEqs=e
     Pyr_pop.v_s = choice(Pyr_VoltRange, N_p)*mV
     Pyr_pop.v_d = choice(Pyr_VoltRange, N_p)*mV
     Int_pop.v = choice(Int_VoltRange, N_i)*mV
+    
+    defaultclock.dt = sim_dt
+    t_vector = np.arange(0, runtime, defaultclock.dt)
+    
+    if callable(PyrInp):
+        PyrInpSignal, PyrIPois_params = PyrInp(t_vector)
+        Poiss_AMPA_Pyr = PoissonGroup(N_p, rates='PyrInpSignal(t)')
+    else:
+        PyrInp *= kHz
+        Poiss_AMPA_Pyr = PoissonGroup(N_p, PyrInp)
+        
+    if callable(IntInp):
+        IntInpSignal, IntIPois_params = IntInp(t_vector)
+        Poiss_AMPA_Int = PoissonGroup(N_i, rates='IntInpSignal(t)')
+    else:
+        IntInp *= kHz
+        Poiss_AMPA_Int = PoissonGroup(N_i, IntInp)
 
-    Poiss_AMPA_Pyr = PoissonGroup(N_p, PyrInp)
     SynPoiss_AMPA_Pyr = Synapses(Poiss_AMPA_Pyr, Pyr_pop, on_pre=PreEq_AMPA_pois, delay=delay_AMPA)
     SynPoiss_AMPA_Pyr.connect(j='i')
 
-    Poiss_AMPA_Int = PoissonGroup(N_i, IntInp)
     SynPoiss_AMPA_Int = Synapses(Poiss_AMPA_Int, Int_pop, on_pre=PreEq_AMPA_pois, delay=delay_AMPA)
     SynPoiss_AMPA_Int.connect(j='i')
 
@@ -135,7 +147,7 @@ def run_network(N_p=4000, N_i=1000, SilencePyrs=None, SilenceInts=None, PyrEqs=e
                   SynPP, SynIP, SynPI, SynII, SynPoiss_AMPA_Pyr,
                   SynPoiss_AMPA_Int, monitors)
     if verbose:
-        print('Running the network...')
+        print('Running %s simulation of the network...' %(runtime))
 
     t1 = time.time()
     net.run(runtime)
@@ -151,8 +163,6 @@ def run_network(N_p=4000, N_i=1000, SilencePyrs=None, SilenceInts=None, PyrEqs=e
         
         rawfile = tables.open_file(filename+'_raw.h5', mode='w', title='RawData')
         root = rawfile.root
-        rawfile.create_array(root, 'PyrInp', obj=PyrInp)
-        rawfile.create_array(root, 'IntInp', obj=IntInp)
         rawfile.create_carray(root, 'SpikeM_t_Pyr', obj=np.array(SpikeM_Pyr.t/ms)*ms)
         rawfile.create_carray(root, 'SpikeM_i_Pyr', obj=np.array(SpikeM_Pyr.i))
         rawfile.create_carray(root, 'SpikeM_t_Int', obj=np.array(SpikeM_Int.t/ms)*ms)
@@ -171,6 +181,24 @@ def run_network(N_p=4000, N_i=1000, SilencePyrs=None, SilenceInts=None, PyrEqs=e
             rawfile.create_carray(root, 'SpikeM_i_PoisInt', obj=np.array(SpikeM_PoisInt.i))
             rawfile.create_carray(root, 'PopRateSig_PoisPyr', obj=PopRateM_PoisPyr.smooth_rate(window='gaussian', width=1*ms))
             rawfile.create_carray(root, 'PopRateSig_PoisInt', obj=PopRateM_PoisInt.smooth_rate(window='gaussian', width=1*ms))
+            if callable(PyrInp):
+                rawfile.create_array(root, 'PyrInpDC', obj=PyrIPois_params['DC_Inp'])
+                rawfile.create_array(root, 'PyrIPois_A', obj=PyrIPois_params['IPois_A'])
+                rawfile.create_array(root, 'PyrIPois_f', obj=PyrIPois_params['IPois_f'])
+                rawfile.create_array(root, 'PyrIPois_ph', obj=PyrIPois_params['IPois_ph'])
+                rawfile.create_array(root, 'PyrIPoisA_Type', obj=PyrIPois_params['IPoisA_Type'])
+                rawfile.create_array(root, 'PyrIPois_phrad', obj=PyrIPois_params['IPois_phrad'])
+            else:
+                rawfile.create_array(root, 'PyrInp', obj=PyrInp)
+            if callable(IntInp):
+                rawfile.create_array(root, 'IntInpDC', obj=IntIPois_params['DC_Inp'])
+                rawfile.create_array(root, 'IntIPois_A', obj=IntIPois_params['IPois_A'])
+                rawfile.create_array(root, 'IntIPois_f', obj=IntIPois_params['IPois_f'])
+                rawfile.create_array(root, 'IntIPois_ph', obj=IntIPois_params['IPois_ph'])
+                rawfile.create_array(root, 'IntIPoisA_Type', obj=IntIPois_params['IPoisA_Type'])
+                rawfile.create_array(root, 'IntIPois_phrad', obj=IntIPois_params['IPois_phrad'])
+            else:
+                rawfile.create_array(root, 'IntInp', obj=IntInp)
 
         if not monitored==[]:
             for i,var in enumerate(monitored):
@@ -198,254 +226,12 @@ def run_network(N_p=4000, N_i=1000, SilencePyrs=None, SilenceInts=None, PyrEqs=e
         subplot(2,1,1)
         plot(SpikeM_Pyr.t/ms, SpikeM_Pyr.i, '.', SpikeM_Int.t/ms, SpikeM_Int.i+4000, '.')
         xlim(PopRateM_Pyr.t[0]/ms, PopRateM_Pyr.t[-1]/ms)
-        subplot(2,1,2)
-        plot(PopRateM_Pyr.t/ms, PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms), PopRateM_Int.t/ms, PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
-        xlabel('Time (ms)')
-        xlim(PopRateM_Pyr.t[0]/ms, PopRateM_Pyr.t[-1]/ms)
-        show()
-    
-    Monitors = {'SpikeM_Pyr':SpikeM_Pyr,
-                'PopRateM_Pyr':PopRateM_Pyr,
-                'SpikeM_Int':SpikeM_Int,
-                'PopRateM_Int':PopRateM_Int,
-                'SynPP':SynPP, 'SynIP':SynIP,
-                'SynII':SynII, 'SynPI':SynPI}
-    if not monitored_Pyr==[]:
-        Monitors['StateM_Pyr'] = StateM_Pyr
-        Monitors['StateM_Int'] = StateM_Int
-    if monitor_pois:
-        Monitors['SpikeM_PoisPyr'] = SpikeM_PoisPyr
-        Monitors['PopRateM_PoisPyr'] = PopRateM_PoisPyr
-        Monitors['SpikeM_PoisInt'] = SpikeM_PoisInt
-        Monitors['PopRateM_PoisInt'] = PopRateM_PoisInt
-        
-    return Monitors
-    
-#####################################################################################
-
-
-def run_network_IP(N_p=4000, N_i=1000, PyrEqs=eqs_P, IntEqs=eqs_I, PreEqAMPA=PreEq_AMPA, PreEqGABA=PreEq_GABA, PyrInp=1, IntInp=1, IPois_A=1., IPois_ph=0., IPois_Atype='ramp', IPois_f=70, PP_C=0.01, IP_C=0.1, II_C=0.1, PI_C=0.1, runtime=1000, sim_dt=0.02, SynConns=None, SaveSynns=False, monitored=[], monitors_dt=0.2, avgoneurons=True, avgotime=False, avgotimest=10, monitor_pois=False, record_vm=False, save_raw=False, filename=None, verbose=True, PlotFlag=False):
-    '''
-    Simulates a network consisting of the desired number of pyramidal neurons and interneurons with dynamics described by predefined set of equations. Inputs are inhomogenous poisson processes (AC rates)
-    
-    * Parameters:
-    - N_p: Number of excitatory pyramidal neurons in the network
-    - N_i: Number of inhibitory interneurons in the network
-    - PyrEqs: Equations to use for the pyramidal population
-    - IntEqs: Equations to use for the interneurons population
-    - PreEqAMPA: Equations to use for AMPA (excitatory) synapses
-    - PreEqGABA: Equations to use for GABA (inhibitory) synapses
-    - PyrInp: Poisson input rate to the pyramidal neurons [kHz]
-    - IntInp: Poisson input rate to the interneurons [kHz]
-    - IPois_A: Inhomogenous poisson's amplitude of variation [kHz]
-    - IPois_Atype: Type of the inhomogenous poisson's amplitude of variation ('ramp' or 'const')
-    - IPois_f: Inhomogenous poisson's frequency [Hz]
-    - PP_C: Pyramidal-pyramidal Connectivity
-    - IP_C: Interneuron-pyramidal Connectivity
-    - II_C: Interneuron-interneuron Connectivity
-    - PI_C: Pyramidal-interneuron Connectivity
-    - runtime: Time of the simulation [ms]
-    - sim_dt: Simulation time step [ms]
-    - monitored: List of monitored variables from the neurons
-    - monitor_pois: Whether to have monitors for the poisson input populations
-    - record_vm: Whether to record membrane voltage of the neurons (only first and last of each population)
-    - save_raw: Whether to save raw data after the simulation
-    - filename: File name under which raw data is saved
-    - verbose: Whether to print progress texts while running
-    - PlotFlag: Whether to plot some results after the simulation
-    
-    * Returns:
-    - Monitors: A dictinary of the different monitors used in the simulation and recorded data stored within them
-    '''
-    
-    runtime *= ms
-    sim_dt *= ms
-    monitors_dt *= ms
-    
-    PyrInp *= kHz
-    IntInp *= kHz
-    
-    if not any((type(IPois_A) is list, type(IPois_A) is np.ndarray)):
-        IPoisPyr_A = IPois_A
-        IPoisInt_A = IPois_A
-    else:
-        IPoisPyr_A = IPois_A[0]
-        IPoisInt_A = IPois_A[1]
-    if not any((type(IPois_Atype) is list, type(IPois_Atype) is np.ndarray)):
-        IPoisPyr_Atype = IPois_Atype
-        IPoisInt_Atype = IPois_Atype
-    else:
-        IPoisPyr_Atype = IPois_Atype[0]
-        IPoisInt_Atype = IPois_Atype[1]
-    if not any((type(IPois_f) is list, type(IPois_f) is np.ndarray)):
-        IPoisPyr_f = IPois_f
-        IPoisInt_f = IPois_f
-    else:
-        IPoisPyr_f = IPois_f[0]
-        IPoisInt_f = IPois_f[1]
-    if not any((type(IPois_ph) is list, type(IPois_ph) is np.ndarray)):
-        IPoisPyr_ph = IPois_ph
-        IPoisInt_ph = IPois_ph
-    else:
-        IPoisPyr_ph = IPois_ph[0]
-        IPoisInt_ph = IPois_ph[1]
-    IPoisPyr_phrad = IPoisPyr_ph*np.pi/180.
-    IPoisInt_phrad = IPoisInt_ph*np.pi/180.
-    
-    IPoisPyr_f *= Hz
-    IPoisInt_f *= Hz
-    
-    if verbose:
-        print('Setting up the network...')
-    
-    monitored_Pyr = list(monitored)
-    monitored_Int = list(monitored)
-    if record_vm:
-        monitored_Pyr.append('v_s')
-        monitored_Int.append('v')
-    
-    defaultclock.dt = sim_dt
-    
-    IPoisPyr_A *= kHz
-    IPoisInt_A *= kHz
-    
-    t_vector = np.arange(0, runtime, defaultclock.dt)
-    if IPoisPyr_Atype is 'ramp':
-        IPoisPyr_A = np.linspace(0, IPoisPyr_A/kHz, len(t_vector))*kHz
-    if IPoisInt_Atype is 'ramp':
-        IPoisInt_A = np.linspace(0, IPoisInt_A/kHz, len(t_vector))*kHz
-    
-    PoissRate_Pyr = TimedArray(PyrInp+IPoisPyr_A*np.cos(2*np.pi*IPoisPyr_f*t_vector+IPoisPyr_phrad), dt=defaultclock.dt)
-    PoissRate_Int = TimedArray(IntInp+IPoisInt_A*np.cos(2*np.pi*IPoisInt_f*t_vector+IPoisInt_phrad), dt=defaultclock.dt)
-    
-    Pyr_pop = NeuronGroup(N_p, PyrEqs, threshold='v_s>-30*mV', refractory=1.3*ms, method='rk4')
-    Int_pop = NeuronGroup(N_i, IntEqs, threshold='v>-30*mV', refractory=1.3*ms, method='rk4')
-    
-    SynPP = Synapses(Pyr_pop, Pyr_pop, on_pre=PreEq_AMPA, delay=delay_AMPA)
-    SynIP = Synapses(Int_pop, Pyr_pop, on_pre=PreEq_GABA, delay=delay_GABA)
-    SynII = Synapses(Int_pop, Int_pop, on_pre=PreEq_GABA, delay=delay_GABA)
-    SynPI = Synapses(Pyr_pop, Int_pop, on_pre=PreEq_AMPA, delay=delay_AMPA)
-
-    if SynConns is None:
-        SynPP.connect(p=PP_C)
-        SynIP.connect(p=IP_C)
-        SynII.connect(p=II_C)
-        SynPI.connect(p=PI_C)
-    else:
-        SynPP.connect(i=SynConns['SynPPij'][:,0], j=SynConns['SynPPij'][:,1])
-        SynIP.connect(i=SynConns['SynIPij'][:,0], j=SynConns['SynIPij'][:,1])
-        SynII.connect(i=SynConns['SynIIij'][:,0], j=SynConns['SynIIij'][:,1])
-        SynPI.connect(i=SynConns['SynPIij'][:,0], j=SynConns['SynPIij'][:,1])
-
-    voltRange = np.arange(-100, -30, 0.1)
-    Pyr_pop.v_s = choice(voltRange, N_p)*mV
-    Int_pop.v = choice(voltRange, N_i)*mV
-
-    Poiss_AMPA_Pyr = PoissonGroup(N_p, rates='PoissRate_Pyr(t)')
-    SynPoiss_AMPA_Pyr = Synapses(Poiss_AMPA_Pyr, Pyr_pop, on_pre=PreEq_AMPA_pois, delay=delay_AMPA)
-    SynPoiss_AMPA_Pyr.connect(j='i')
-
-    Poiss_AMPA_Int = PoissonGroup(N_i, rates='PoissRate_Int(t)')
-    SynPoiss_AMPA_Int = Synapses(Poiss_AMPA_Int, Int_pop, on_pre=PreEq_AMPA_pois, delay=delay_AMPA)
-    SynPoiss_AMPA_Int.connect(j='i')
-
-    SpikeM_Pyr = SpikeMonitor(Pyr_pop)
-    PopRateM_Pyr = PopulationRateMonitor(Pyr_pop)
-
-    SpikeM_Int = SpikeMonitor(Int_pop)
-    PopRateM_Int = PopulationRateMonitor(Int_pop)
-    
-    monitors = [SpikeM_Pyr, PopRateM_Pyr, SpikeM_Int, PopRateM_Int]
-    if not monitored_Pyr==[]:
-        StateM_Pyr = StateMonitor(Pyr_pop, monitored_Pyr, record=True, dt=monitors_dt)
-        StateM_Int = StateMonitor(Int_pop, monitored_Int, record=True, dt=monitors_dt)
-        monitors.append(StateM_Pyr)
-        monitors.append(StateM_Int)
-        
-    if monitor_pois:
-        SpikeM_PoisPyr = SpikeMonitor(Poiss_AMPA_Pyr)
-        PopRateM_PoisPyr = PopulationRateMonitor(Poiss_AMPA_Pyr)
-        monitors.append(SpikeM_PoisPyr)
-        monitors.append(PopRateM_PoisPyr)
-
-        SpikeM_PoisInt = SpikeMonitor(Poiss_AMPA_Int)
-        PopRateM_PoisInt = PopulationRateMonitor(Poiss_AMPA_Int)
-        monitors.append(SpikeM_PoisInt)
-        monitors.append(PopRateM_PoisInt)
-        
-    net = Network(Pyr_pop, Int_pop, Poiss_AMPA_Pyr, Poiss_AMPA_Int,
-                  SynPP, SynIP, SynPI, SynII, SynPoiss_AMPA_Pyr,
-                  SynPoiss_AMPA_Int, monitors)
-    
-    if verbose:
-        print('Running the network...')
-
-    t1 = time.time()
-    net.run(runtime)
-    t2 = time.time()
-    
-    if verbose:
-        print('Simulating %s took %s minutes...' %(runtime, (t2-t1)/60.))
-        
-    if save_raw:
-        
-        if filename is None:
-            filename = 'new_experiment'
-        
-        rawfile = tables.open_file(filename+'_raw.h5', mode='w', title='RawData')
-        root = rawfile.root
-        rawfile.create_array(root, 'PyrInp', obj=PyrInp)
-        rawfile.create_array(root, 'IntInp', obj=IntInp)
-        rawfile.create_carray(root, 'SpikeM_t_Pyr', obj=np.array(SpikeM_Pyr.t/ms)*ms)
-        rawfile.create_carray(root, 'SpikeM_i_Pyr', obj=np.array(SpikeM_Pyr.i))
-        rawfile.create_carray(root, 'SpikeM_t_Int', obj=np.array(SpikeM_Int.t/ms)*ms)
-        rawfile.create_carray(root, 'SpikeM_i_Int', obj=np.array(SpikeM_Int.i))
-        rawfile.create_carray(root, 'PopRateSig_Pyr', obj=PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms))
-        rawfile.create_carray(root, 'PopRateSig_Int', obj=PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
-        if SaveSynns:
-            rawfile.create_carray(root, 'SynPP_ij', obj=np.array(zip(SynPP.i,SynPP.j)))
-            rawfile.create_carray(root, 'SynIP_ij', obj=np.array(zip(SynIP.i,SynIP.j)))
-            rawfile.create_carray(root, 'SynII_ij', obj=np.array(zip(SynII.i,SynII.j)))
-            rawfile.create_carray(root, 'SynPI_ij', obj=np.array(zip(SynPI.i,SynPI.j)))
-        if monitor_pois:
-            rawfile.create_carray(root, 'SpikeM_t_PoisPyr', obj=np.array(SpikeM_PoisPyr.t/ms)*ms)
-            rawfile.create_carray(root, 'SpikeM_i_PoisPyr', obj=np.array(SpikeM_PoisPyr.i))
-            rawfile.create_carray(root, 'SpikeM_t_PoisInt', obj=np.array(SpikeM_PoisInt.t/ms)*ms)
-            rawfile.create_carray(root, 'SpikeM_i_PoisInt', obj=np.array(SpikeM_PoisInt.i))
-            rawfile.create_carray(root, 'PopRateSig_PoisPyr', obj=PopRateM_PoisPyr.smooth_rate(window='gaussian', width=1*ms))
-            rawfile.create_carray(root, 'PopRateSig_PoisInt', obj=PopRateM_PoisInt.smooth_rate(window='gaussian', width=1*ms))
-
-        if not monitored==[]:
-            for i,var in enumerate(monitored):
-                if avgoneurons:
-                    rawfile.create_carray(root, var+'_Pyr', obj=np.array(StateM_Pyr.get_states()[var]).mean(axis=1))
-                    rawfile.create_carray(root, var+'_Int', obj=np.array(StateM_Int.get_states()[var]).mean(axis=1))
-                if avgotime:
-                    rawfile.create_carray(root, var+'_Pyr', obj=np.array(StateM_Pyr.get_states()[var])[int(avgotimest/monitors_dt),:].mean(axis=0))
-                    rawfile.create_carray(root, var+'_Int', obj=np.array(StateM_Int.get_states()[var])[int(avgotimest/monitors_dt),:].mean(axis=0))
-                if not any((avgoneurons,avgotime)):
-                    locals()[var+'_Pyr'] = rawfile.create_carray(root, var+'_Pyr', obj=np.array(StateM_Pyr.get_states()[var]))
-                    locals()[var+'_Int'] = rawfile.create_carray(root, var+'_Int', obj=np.array(StateM_Int.get_states()[var]))
-    
-        if record_vm:
-            rawfile.create_vlarray(root, 'Vm_Pyr', obj=StateM_Pyr.get_states()['v_s'][:,[0,-1]])
-            rawfile.create_vlarray(root, 'Vm_Int', obj=StateM_Pyr.get_states()['v'][:,[0,-1]])
-        
-        rawfile.close()
-        
-        if verbose:
-            print('Saved raw data successfullty!')
-        
-    if PlotFlag:
-        figure()
-        subplot(2,1,1)
-        plot(SpikeM_Pyr.t/ms, SpikeM_Pyr.i, '.', SpikeM_Int.t/ms, SpikeM_Int.i+4000, '.')
-        xlim(PopRateM_Pyr.t[0]/ms, PopRateM_Pyr.t[-1]/ms)
-        subplot(2,1,2)
-        plot(PopRateM_Pyr.t/ms, PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms), PopRateM_Int.t/ms, PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
-        xlabel('Time (ms)')
-        xlim(PopRateM_Pyr.t[0]/ms, PopRateM_Pyr.t[-1]/ms)
         ylabel('Neuron Index')
+        subplot(2,1,2)
+        plot(PopRateM_Pyr.t/ms, PopRateM_Pyr.smooth_rate(window='gaussian', width=1*ms), PopRateM_Int.t/ms, PopRateM_Int.smooth_rate(window='gaussian', width=1*ms))
+        xlabel('Time (ms)')
+        ylabel('Inst. Population Rate (Hz)')
+        xlim(PopRateM_Pyr.t[0]/ms, PopRateM_Pyr.t[-1]/ms)
         show()
     
     Monitors = {'SpikeM_Pyr':SpikeM_Pyr,
@@ -732,17 +518,23 @@ def analyze_network(Monitors, comp_phase_curr=False, N_p=4000, N_i=1000, start_t
         subplot(2,2,1)
         hist(rates_Pyr, bins=20)
         title('Single Cell Rates Hist. (Pyr)')
+        xlabel('Frequency (Hz)')
         subplot(2,2,2)
         hist(rates_Int, bins=20)
         title('Single Cell Rates Hist. (Int)')
+        xlabel('Frequency (Hz)')
+        ylabel('Count')
         subplot(2,2,3)
         plot(freq_vect, RateMTS_Pyr)
         xlim(0, 300)
         title('Pop. Spectrum (Pyr)')
+        xlabel('Frequency (Hz)')
         subplot(2,2,4)
         plot(freq_vect, RateMTS_Int)
         xlim(0, 300)
         title('Pop. Spectrum (Int)')
+        xlabel('Frequency (Hz)')
+        ylabel('Power')
         show()
 
     Network_feats = {'AvgCellRate_Pyr':AvgCellRate_Pyr,
