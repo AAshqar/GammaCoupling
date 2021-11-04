@@ -3,6 +3,7 @@ import numpy as np
 from collections import Counter
 import operator
 from scipy.signal import butter, lfilter
+from scipy.stats import circmean
 from skimage.feature import peak_local_max
 import re
 import tables
@@ -16,7 +17,12 @@ from HelpingFuncs.FreqAnalysis import comp_mtspectrogram
 from HelpingFuncs.Histogram import movinghist
 
 
-def ExtractNeuronsFeats(filename, N_p=4000, N_i=1000, W=2**13, sim_dt=0.02, montdt=0.2, start_time=200, ws=None, NFFT=None, freq_limit=300, NW=2.5, midfreq_def=105., CircPhase=False, save_filename=None):
+def ExtractNeuronsFeats(filename, N_p=4000, N_i=1000, W=2**13, sim_dt=0.02, montdt=0.2, start_time=200, ws=None, NFFT=None, freq_limit=300, NW=2.5, midfreq_def=105., MTSdict=None, CircPhase=False, save_filename=None):
+    
+    '''
+    Function to extract frequency-domain and oscillations' features from the raw data in addition to individual neurons' features with regard to the detected oscillations; such as firing rates and preferred phases
+    
+    '''
     
     fs = np.round(1./(sim_dt*1e-3),1)
     
@@ -35,11 +41,15 @@ def ExtractNeuronsFeats(filename, N_p=4000, N_i=1000, W=2**13, sim_dt=0.02, mont
     PopRateSigWhole_Full = (4*PopRateSigWhole_Pyr+1*PopRateSigWhole_Int)/5.
     PopRateSig_Pyr = np.copy(PopRateSigWhole_Pyr[int(start_time/sim_dt):])
     PopRateSig_Int = np.copy(PopRateSigWhole_Int[int(start_time/sim_dt):])
-    PopRateSig_Full = np.copy((4*PopRateSigWhole_Pyr[int(start_time/sim_dt):]+1*PopRateSigWhole_Int[int(start_time/sim_dt):])/5.)
-    IsynP_Pyr = np.mean(f.root.IsynP_Pyr.read()[int(start_time/montdt):,:], axis=0)
-    IsynI_Pyr = np.mean(f.root.IsynI_Pyr.read()[int(start_time/montdt):,:], axis=0)
-    IsynP_Int = np.mean(f.root.IsynP_Int.read()[int(start_time/montdt):,:], axis=0)
-    IsynI_Int = np.mean(f.root.IsynI_Int.read()[int(start_time/montdt):,:], axis=0)
+    PopRateSig_Full =  np.copy(PopRateSigWhole_Full[int(start_time/sim_dt):])
+    IsynP_Pyr = np.copy(f.root.IsynP_Pyr.read()[int(start_time/montdt):, :])
+    IsynI_Pyr = np.copy(f.root.IsynI_Pyr.read()[int(start_time/montdt):, :])
+    IsynP_Int = np.copy(f.root.IsynP_Int.read()[int(start_time/montdt):, :])
+    IsynI_Int = np.copy(f.root.IsynI_Int.read()[int(start_time/montdt):, :])
+    IsynPmean_Pyr = np.mean(IsynP_Pyr, axis=0)
+    IsynImean_Pyr = np.mean(IsynI_Pyr, axis=0)
+    IsynPmean_Int = np.mean(IsynP_Int, axis=0)
+    IsynImean_Int = np.mean(IsynI_Int, axis=0)
     f.close()
     
     print('  Loaded raw data...')
@@ -57,12 +67,21 @@ def ExtractNeuronsFeats(filename, N_p=4000, N_i=1000, W=2**13, sim_dt=0.02, mont
     freq_vect = np.linspace(0, fmax, NFFT/2)
     freq_vect = freq_vect[np.where(freq_vect<=freq_limit)]
     
-    # Pyr.
-    MTS_Pyr, freq_vect = comp_mtspectrogram(PopRateSig_Pyr, fs=fs, freq_limit=freq_limit, W=W, PlotFlag=False)
-    # Int.
-    MTS_Int, freq_vect = comp_mtspectrogram(PopRateSig_Int, fs=fs, freq_limit=freq_limit, W=W, PlotFlag=False)
-    # Full.
-    MTS_Full, freq_vect = comp_mtspectrogram(PopRateSig_Full, fs=fs, freq_limit=freq_limit, W=W, PlotFlag=False)
+    if MTSdict is None:
+        # Pyr.
+        MTS_Pyr, freq_vect = comp_mtspectrogram(PopRateSig_Pyr, fs=fs, freq_limit=freq_limit, W=W, PlotFlag=False)
+        # Int.
+        MTS_Int, freq_vect = comp_mtspectrogram(PopRateSig_Int, fs=fs, freq_limit=freq_limit, W=W, PlotFlag=False)
+        # Full.
+        MTS_Full, freq_vect = comp_mtspectrogram(PopRateSig_Full, fs=fs, freq_limit=freq_limit, W=W, PlotFlag=False)
+    else:
+        MTS_Pyr = MTSdict['RateMTS_Pyr']
+        MTS_Int = MTSdict['RateMTS_Int']
+        MTS_Full = MTSdict['RateMTS_Full']
+        MTS_time = MTSdict['MTS_time']
+        freq_vect = MTSdict['freq_vect']
+        
+
 
     print('  Extracted Spectrograms...')
     
@@ -86,14 +105,13 @@ def ExtractNeuronsFeats(filename, N_p=4000, N_i=1000, W=2**13, sim_dt=0.02, mont
         
     LowModeInds_Pyr = np.array([(f,t) for f,t in MaxInds_Pyr if freq_vect[f]<midfreq])
     LowModeInds_Int = np.array([(f,t) for f,t in MaxInds_Int if freq_vect[f]<midfreq])
-    LowModeInds_Full = np.array([(f,t) for f,t in MaxInds_Full if freq_vect[f]<midfreq])
     HighModeInds_Pyr = np.array([(f,t) for f,t in MaxInds_Pyr if freq_vect[f]>=midfreq])
     HighModeInds_Int = np.array([(f,t) for f,t in MaxInds_Int if freq_vect[f]>=midfreq])
-    HighModeInds_Full = np.array([(f,t) for f,t in MaxInds_Full if freq_vect[f]>=midfreq])    
     
     NeuronFRs_Pyr = np.zeros([N_p])
     NeuronFRs_Int = np.zeros([N_i])
     SpikeTrains_Pyr = []
+    SpikeTrains_Int = []
     SpikeTrains_Int = []
     SpikeTrainSigs_Pyr1 = np.zeros([len(time_v), int(N_p/2.)])
     SpikeTrainSigs_Pyr2 = np.zeros([len(time_v), int(N_p/2.)])
@@ -127,10 +145,10 @@ def ExtractNeuronsFeats(filename, N_p=4000, N_i=1000, W=2**13, sim_dt=0.02, mont
     sig_int = np.copy(PopRateSig_Int)
     NeuronPhases_Pyr = {'PING':[], 'ING':[]}
     NeuronPhases_Int = {'PING':[], 'ING':[]}
-    PrefPhase_Pyr = {'PING':np.zeros([N_p]), 'ING':np.zeros([N_p])}
-    PrefPhase_Int = {'PING':np.zeros([N_i]), 'ING':np.zeros([N_i])}
-    PrefPhasePr_Pyr = {'PING':np.zeros([N_p]), 'ING':np.zeros([N_p])}
-    PrefPhasePr_Int = {'PING':np.zeros([N_i]), 'ING':np.zeros([N_i])}
+    NeuronPreSpkIsynP_Pyr = {'PING':[], 'ING':[]}
+    NeuronPreSpkIsynI_Pyr = {'PING':[], 'ING':[]}
+    NeuronPreSpkIsynP_Int = {'PING':[], 'ING':[]}
+    NeuronPreSpkIsynI_Int = {'PING':[], 'ING':[]}
 
     NeuronFRsModes_Pyr = {'PING':np.zeros([N_p]), 'ING':np.zeros([N_p])}
     NeuronFRsModes_Int = {'PING':np.zeros([N_i]), 'ING':np.zeros([N_i])}
@@ -138,18 +156,24 @@ def ExtractNeuronsFeats(filename, N_p=4000, N_i=1000, W=2**13, sim_dt=0.02, mont
     if CircPhase:
         NeuronPhasesC_Pyr = {'PING':[], 'ING':[]}
         NeuronPhasesC_Int = {'PING':[], 'ING':[]}
-        PrefPhaseC_Pyr = {'PING':np.zeros([N_p]), 'ING':np.zeros([N_p])}
-        PrefPhaseC_Int = {'PING':np.zeros([N_i]), 'ING':np.zeros([N_i])}
-        PrefPhasePrC_Pyr = {'PING':np.zeros([N_p]), 'ING':np.zeros([N_p])}
-        PrefPhasePrC_Int = {'PING':np.zeros([N_i]), 'ING':np.zeros([N_i])}
+        PrefPhase_Pyr = {'PING':np.zeros([N_p]), 'ING':np.zeros([N_p])}
+        PrefPhase_Int = {'PING':np.zeros([N_i]), 'ING':np.zeros([N_i])}
 
     
     for n in range(N_p):
         NeuronPhases_Pyr['PING'].append([])
         NeuronPhases_Pyr['ING'].append([])
+        NeuronPreSpkIsynP_Pyr['PING'].append([])
+        NeuronPreSpkIsynP_Pyr['ING'].append([])
+        NeuronPreSpkIsynI_Pyr['PING'].append([])
+        NeuronPreSpkIsynI_Pyr['ING'].append([])
         if n<N_i:
             NeuronPhases_Int['PING'].append([])
             NeuronPhases_Int['ING'].append([])
+            NeuronPreSpkIsynP_Int['PING'].append([])
+            NeuronPreSpkIsynP_Int['ING'].append([])
+            NeuronPreSpkIsynI_Int['PING'].append([])
+            NeuronPreSpkIsynI_Int['ING'].append([])
         if CircPhase:
             for n in range(N_p):
                 NeuronPhasesC_Pyr['PING'].append([])
@@ -168,46 +192,67 @@ def ExtractNeuronsFeats(filename, N_p=4000, N_i=1000, W=2**13, sim_dt=0.02, mont
         spktrn_pyr1 = np.copy(SpikeTrainSigs_Pyr1[int(raw_ind-W/2):int(raw_ind+W/2),:])
         times_pyr1, neurons_pyr1 = np.where(spktrn_pyr1==1)
         for t,n in zip(times_pyr1,neurons_pyr1):
+            spk_I_ind = np.argmin(np.abs(time_v[t]-timeI_v))
             if t<=burstpeaks[0]:
                 period = np.float(burstpeaks[1]-burstpeaks[0])
-                phase = ((period-(burstpeaks[0]-t))/period)*360
+                phase = ((period-(burstpeaks[0]-t))/period)*360.
             else:
                 if t>burstpeaks[-1]:
-                    period = burstpeaks[-1]-burstpeaks[-2]
+                    period = np.float(burstpeaks[-1]-burstpeaks[-2])
                 else:
                     period = np.float(burstpeaks[burstpeaks>=t][0]-burstpeaks[burstpeaks<t][-1])
-                phase = ((t-burstpeaks[burstpeaks<t][-1])/period)*360
-            NeuronPhases_Pyr['PING'][:int(N_p/2.)][n].append(phase%360)
+                phase = ((t-burstpeaks[burstpeaks<t][-1])/period)*360.
+            if t-period >= 0:
+                prespk_I_ind = np.argmin(np.abs(time_v[int(t-period)]-timeI_v))
+            else:
+                prespk_I_ind = 0
+            NeuronPhases_Pyr['PING'][:int(N_p/2.)][n].append(phase%360.)
+            NeuronPreSpkIsynP_Pyr['PING'][:int(N_p / 2.)][n].append(np.mean(IsynP_Pyr[prespk_I_ind:spk_I_ind, n]))
+            NeuronPreSpkIsynI_Pyr['PING'][:int(N_p / 2.)][n].append(np.mean(IsynI_Pyr[prespk_I_ind:spk_I_ind, n]))
         NeuronFRsModes_Pyr['PING'][:int(N_p/2.)] += np.sum(spktrn_pyr1, axis=0)
 
         spktrn_pyr2 = np.copy(SpikeTrainSigs_Pyr2[int(raw_ind-W/2):int(raw_ind+W/2),:])
         times_pyr2, neurons_pyr2 = np.where(spktrn_pyr2==1)
         for t,n in zip(times_pyr2,neurons_pyr2):
+            spk_I_ind = np.argmin(np.abs(time_v[t] - timeI_v))
             if t<=burstpeaks[0]:
                 period = np.float(burstpeaks[1]-burstpeaks[0])
-                phase = ((period-(burstpeaks[0]-t))/period)*360
+                phase = ((period-(burstpeaks[0]-t))/period)*360.
             else:
                 if t>burstpeaks[-1]:
-                    period = burstpeaks[-1]-burstpeaks[-2]
+                    period = np.float(burstpeaks[-1]-burstpeaks[-2])
                 else:
                     period = np.float(burstpeaks[burstpeaks>=t][0]-burstpeaks[burstpeaks<t][-1])
-                phase = ((t-burstpeaks[burstpeaks<t][-1])/period)*360
-            NeuronPhases_Pyr['PING'][int(N_p/2.):][n].append(phase%360)
+                phase = ((t-burstpeaks[burstpeaks<t][-1])/period)*360.
+            if t-period >= 0:
+                prespk_I_ind = np.argmin(np.abs(time_v[int(t-period)]-timeI_v))
+            else:
+                prespk_I_ind = 0
+            NeuronPhases_Pyr['PING'][int(N_p/2.):][n].append(phase%360.)
+            NeuronPreSpkIsynP_Pyr['PING'][int(N_p / 2.):][n].append(np.mean(IsynP_Pyr[prespk_I_ind:spk_I_ind, int(n+(N_p/2))]))
+            NeuronPreSpkIsynI_Pyr['PING'][int(N_p / 2.):][n].append(np.mean(IsynI_Pyr[prespk_I_ind:spk_I_ind, int(n+(N_p/2))]))
         NeuronFRsModes_Pyr['PING'][int(N_p/2.):] += np.sum(spktrn_pyr2, axis=0)
 
         spktrn_int = np.copy(SpikeTrainSigs_Int[int(raw_ind-W/2):int(raw_ind+W/2),:])
         times_int, neurons_int = np.where(spktrn_int==1)
         for t,n in zip(times_int,neurons_int):
+            spk_I_ind = np.argmin(np.abs(time_v[t] - timeI_v))
             if t<=burstpeaks[0]:
                 period = np.float(burstpeaks[1]-burstpeaks[0])
-                phase = ((period-(burstpeaks[0]-t))/period)*360
+                phase = ((period-(burstpeaks[0]-t))/period)*360.
             else:
                 if t>burstpeaks[-1]:
-                    period = burstpeaks[-1]-burstpeaks[-2]
+                    period = np.float(burstpeaks[-1]-burstpeaks[-2])
                 else:
                     period = np.float(burstpeaks[burstpeaks>=t][0]-burstpeaks[burstpeaks<t][-1])
-                phase = ((t-burstpeaks[burstpeaks<t][-1])/period)*360
-            NeuronPhases_Int['PING'][n].append(phase%360)
+                phase = ((t-burstpeaks[burstpeaks<t][-1])/period)*360.
+            if t-period >= 0:
+                prespk_I_ind = np.argmin(np.abs(time_v[int(t-period)]-timeI_v))
+            else:
+                prespk_I_ind = 0
+            NeuronPhases_Int['PING'][n].append(phase%360.)
+            NeuronPreSpkIsynP_Int['PING'][n].append(np.mean(IsynP_Int[prespk_I_ind:spk_I_ind, n]))
+            NeuronPreSpkIsynI_Int['PING'][n].append(np.mean(IsynI_Int[prespk_I_ind:spk_I_ind, n]))
         NeuronFRsModes_Int['PING'] += np.sum(spktrn_int, axis=0)
 
     NeuronFRsModes_Pyr['PING'] /= np.float(W*len(LowModeInds_Pyr)*sim_dt)/1000.
@@ -225,201 +270,187 @@ def ExtractNeuronsFeats(filename, N_p=4000, N_i=1000, W=2**13, sim_dt=0.02, mont
         spktrn_pyr1 = np.copy(SpikeTrainSigs_Pyr1[int(raw_ind-W/2):int(raw_ind+W/2),:])
         times_pyr1, neurons_pyr1 = np.where(spktrn_pyr1==1)
         for t,n in zip(times_pyr1,neurons_pyr1):
+            spk_I_ind = np.argmin(np.abs(time_v[t]-timeI_v))
             if t<=burstpeaks[0]:
                 period = np.float(burstpeaks[1]-burstpeaks[0])
-                phase = ((period-(burstpeaks[0]-t))/period)*360
+                phase = ((period-(burstpeaks[0]-t))/period)*360.
             else:
                 if t>burstpeaks[-1]:
-                    period = burstpeaks[-1]-burstpeaks[-2]
+                    period = np.float(burstpeaks[-1]-burstpeaks[-2])
                 else:
                     period = np.float(burstpeaks[burstpeaks>=t][0]-burstpeaks[burstpeaks<t][-1])
-                phase = ((t-burstpeaks[burstpeaks<t][-1])/period)*360
-            NeuronPhases_Pyr['ING'][:int(N_p/2.)][n].append(phase%360)
+                phase = ((t-burstpeaks[burstpeaks<t][-1])/period)*360.
+            if t-period >= 0:
+                prespk_I_ind = np.argmin(np.abs(time_v[int(t-period)]-timeI_v))
+            else:
+                prespk_I_ind = 0
+            NeuronPhases_Pyr['ING'][:int(N_p/2.)][n].append(phase%360.)
+            NeuronPreSpkIsynP_Pyr['ING'][:int(N_p / 2.)][n].append(np.mean(IsynP_Pyr[prespk_I_ind:spk_I_ind, n]))
+            NeuronPreSpkIsynI_Pyr['ING'][:int(N_p / 2.)][n].append(np.mean(IsynI_Pyr[prespk_I_ind:spk_I_ind, n]))
         NeuronFRsModes_Pyr['ING'][:int(N_p/2.)] += np.sum(spktrn_pyr1, axis=0)
 
         spktrn_pyr2 = np.copy(SpikeTrainSigs_Pyr2[int(raw_ind-W/2):int(raw_ind+W/2),:])
         times_pyr2, neurons_pyr2 = np.where(spktrn_pyr2==1)
         for t,n in zip(times_pyr2,neurons_pyr2):
+            spk_I_ind = np.argmin(np.abs(time_v[t]-timeI_v))
             if t<=burstpeaks[0]:
                 period = np.float(burstpeaks[1]-burstpeaks[0])
-                phase = ((period-(burstpeaks[0]-t))/period)*360
+                phase = ((period-(burstpeaks[0]-t))/period)*360.
             else:
                 if t>burstpeaks[-1]:
-                    period = burstpeaks[-1]-burstpeaks[-2]
+                    period = np.float(burstpeaks[-1]-burstpeaks[-2])
                 else:
                     period = np.float(burstpeaks[burstpeaks>=t][0]-burstpeaks[burstpeaks<t][-1])
-                phase = ((t-burstpeaks[burstpeaks<t][-1])/period)*360
-            NeuronPhases_Pyr['ING'][int(N_p/2.):][n].append(phase%360)
+                phase = ((t-burstpeaks[burstpeaks<t][-1])/period)*360.
+            if t-period >= 0:
+                prespk_I_ind = np.argmin(np.abs(time_v[int(t-period)]-timeI_v))
+            else:
+                prespk_I_ind = 0
+            NeuronPhases_Pyr['ING'][int(N_p/2.):][n].append(phase%360.)
+            NeuronPreSpkIsynP_Pyr['ING'][int(N_p / 2.):][n].append(np.mean(IsynP_Pyr[prespk_I_ind:spk_I_ind, int(n+(N_p/2))]))
+            NeuronPreSpkIsynI_Pyr['ING'][int(N_p / 2.):][n].append(np.mean(IsynI_Pyr[prespk_I_ind:spk_I_ind, int(n+(N_p/2))]))
         NeuronFRsModes_Pyr['ING'][int(N_p/2.):] += np.sum(spktrn_pyr2, axis=0)
 
         spktrn_int = np.copy(SpikeTrainSigs_Int[int(raw_ind-W/2):int(raw_ind+W/2),:])
         times_int, neurons_int = np.where(spktrn_int==1)
         for t,n in zip(times_int,neurons_int):
+            spk_I_ind = np.argmin(np.abs(time_v[t]-timeI_v))
             if t<=burstpeaks[0]:
                 period = np.float(burstpeaks[1]-burstpeaks[0])
-                phase = ((period-(burstpeaks[0]-t))/period)*360
+                phase = ((period-(burstpeaks[0]-t))/period)*360.
             else:
                 if t>burstpeaks[-1]:
-                    period = burstpeaks[-1]-burstpeaks[-2]
+                    period = np.float(burstpeaks[-1]-burstpeaks[-2])
                 else:
                     period = np.float(burstpeaks[burstpeaks>=t][0]-burstpeaks[burstpeaks<t][-1])
-                phase = ((t-burstpeaks[burstpeaks<t][-1])/period)*360
-            NeuronPhases_Int['ING'][n].append(phase%360)
+                phase = ((t-burstpeaks[burstpeaks<t][-1])/period)*360.
+            if t-period >= 0:
+                prespk_I_ind = np.argmin(np.abs(time_v[int(t-period)]-timeI_v))
+            else:
+                prespk_I_ind = 0
+            NeuronPhases_Int['ING'][n].append(phase%360.)
+            NeuronPreSpkIsynP_Int['ING'][n].append(np.mean(IsynP_Int[prespk_I_ind:spk_I_ind, n]))
+            NeuronPreSpkIsynI_Int['ING'][n].append(np.mean(IsynI_Int[prespk_I_ind:spk_I_ind, n]))
         NeuronFRsModes_Int['ING'] += np.sum(spktrn_int, axis=0)
         
     NeuronFRsModes_Pyr['ING'] /= np.float(W*len(HighModeInds_Int)*sim_dt)/1000.
     NeuronFRsModes_Int['ING'] /= np.float(W*len(HighModeInds_Int)*sim_dt)/1000.
-
+    
     for n in range(N_p):
-        phasesLM = np.copy(np.array(NeuronPhases_Pyr['PING'][n]))
-        if CircPhase:
-            phasesLMc = np.copy(phasesLM)
-            phasesLMc[phasesLMc>180.0] -= 360
-            NeuronPhasesC_Pyr['PING'][n] = phasesLMc
-        if len(phasesLM)==0:
+        phasesLMc = np.copy(np.array(NeuronPhases_Pyr['PING'][n]))
+        phasesLMc[phasesLMc>180.] -= 360.
+        NeuronPhasesC_Pyr['PING'][n] = phasesLMc
+        if len(phasesLMc)==0:
             PrefPhase_Pyr['PING'][n] = np.float('nan')
-            if CircPhase:
-                PrefPhaseC_Pyr['PING'][n] = np.float('nan')
-        elif len(phasesLM)==1:
-            PrefPhase_Pyr['PING'][n] = phasesLM[0]
-            PrefPhasePr_Pyr['PING'][n] = 1.
-            if CircPhase:
-                PrefPhaseC_Pyr['PING'][n] = phasesLMc[0]
-                PrefPhasePrC_Pyr['PING'][n] = 1.
         else:
-            h, bins = histogram(phasesLM, bins=bins_vect)
-            bins = bins[:-1] + np.diff(bins)[0]/2.
-            PrefPhase_Pyr['PING'][n] = bins[np.argmax(h)]
-            PrefPhasePr_Pyr['PING'][n] = h[np.argmax(h)]/np.sum(h).astype(np.float)
-            if CircPhase:
-                h, bins = histogram(phasesLMc, bins=bins_vectC)
-                bins = bins[:-1] + np.diff(bins)[0]/2.
-                PrefPhaseC_Pyr['PING'][n] = bins[np.argmax(h)]
-                PrefPhasePrC_Pyr['PING'][n] = h[np.argmax(h)]/np.sum(h).astype(np.float)
-        phasesHM = np.copy(np.array(NeuronPhases_Pyr['ING'][n]))
-        if CircPhase:
-            phasesHMc = np.copy(phasesHM)
-            phasesHMc[phasesHMc>180.0] -= 360
-            NeuronPhasesC_Pyr['ING'][n] = phasesHMc
-        if len(phasesHM)==0:
+            PrefPhase_Pyr['PING'][n] = circmean(phasesLMc*(np.pi/180.))*(180./np.pi)
+        phasesHMc = np.copy(np.array(NeuronPhases_Pyr['ING'][n]))
+        phasesHMc[phasesHMc>180.] -= 360.
+        NeuronPhasesC_Pyr['ING'][n] = phasesHMc
+        if len(phasesHMc)==0:
             PrefPhase_Pyr['ING'][n] = np.float('nan')
-            if CircPhase:
-                PrefPhaseC_Pyr['ING'][n] = np.float('nan')
-        elif len(phasesHM)==1:
-            PrefPhase_Pyr['ING'][n] = phasesHM[0]
-            PrefPhasePr_Pyr['ING'][n] = 1.
-            if CircPhase:
-                PrefPhaseC_Pyr['ING'][n] = phasesHMc[0]
-                PrefPhasePrC_Pyr['ING'][n] = 1.
         else:
-            h, bins = histogram(phasesHM, bins=bins_vect)
-            bins = bins[:-1] + np.diff(bins)[0]/2.
-            PrefPhase_Pyr['ING'][n] = bins[np.argmax(h)]
-            PrefPhasePr_Pyr['ING'][n] = h[np.argmax(h)]/np.sum(h).astype(np.float)
-            if CircPhase:
-                h, bins = histogram(phasesHMc, bins=bins_vectC)
-                bins = bins[:-1] + np.diff(bins)[0]/2.
-                PrefPhaseC_Pyr['ING'][n] = bins[np.argmax(h)]
-                PrefPhasePrC_Pyr['ING'][n] = h[np.argmax(h)]/np.sum(h).astype(np.float)
-
+            PrefPhase_Pyr['ING'][n] = circmean(phasesHMc*(np.pi/180.))*(180./np.pi)
         if n<N_i:
-            phasesLM = np.copy(np.array(NeuronPhases_Int['PING'][n]))
-            if CircPhase:
-                phasesLMc = np.copy(phasesLM)
-                phasesLMc[phasesLMc>180.0] -= 360
-                NeuronPhasesC_Int['PING'][n] = phasesLMc
-            if len(phasesLM)==0:
+            phasesLMc = np.copy(np.array(NeuronPhases_Int['PING'][n]))
+            phasesLMc[phasesLMc>180.] -= 360.
+            NeuronPhasesC_Int['PING'][n] = phasesLMc
+            if len(phasesLMc)==0:
                 PrefPhase_Int['PING'][n] = np.float('nan')
-                if CircPhase:
-                    PrefPhaseC_Int['PING'][n] = np.float('nan')
-            elif len(phasesLM)==1:
-                PrefPhase_Int['PING'][n] = phasesLM[0]
-                PrefPhasePr_Int['PING'][n] = 1.
-                if CircPhase:
-                    PrefPhaseC_Int['PING'][n] = phasesLMc[0]
-                    PrefPhasePrC_Int['PING'][n] = 1.
             else:
-                h, bins = histogram(phasesLM, bins=bins_vect)
-                bins = bins[:-1] + np.diff(bins)[0]/2.
-                PrefPhase_Int['PING'][n] = bins[np.argmax(h)]
-                PrefPhasePr_Int['PING'][n] = h[np.argmax(h)]/np.sum(h).astype(np.float)
-                if CircPhase:
-                    h, bins = histogram(phasesLMc, bins=bins_vectC)
-                    bins = bins[:-1] + np.diff(bins)[0]/2.
-                    PrefPhaseC_Int['PING'][n] = bins[np.argmax(h)]
-                    PrefPhasePrC_Int['PING'][n] = h[np.argmax(h)]/np.sum(h).astype(np.float)
-            phasesHM = np.copy(np.array(NeuronPhases_Int['ING'][n]))
-            if CircPhase:
-                phasesHMc = np.copy(phasesHM)
-                phasesHMc[phasesHMc>180.0] -= 360
-                NeuronPhasesC_Int['ING'][n] = phasesHMc
-            if len(phasesHM)==0:
+                PrefPhase_Int['PING'][n] = circmean(phasesLMc*(np.pi/180.))*(180./np.pi)
+            phasesHMc = np.copy(np.array(NeuronPhases_Int['ING'][n]))
+            phasesHMc[phasesHMc>180.] -= 360.
+            NeuronPhasesC_Int['ING'][n] = phasesHMc
+            if len(phasesHMc)==0:
                 PrefPhase_Int['ING'][n] = np.float('nan')
-                if CircPhase:
-                    PrefPhaseC_Int['ING'][n] = np.float('nan')
-            elif len(phasesHM)==1:
-                PrefPhase_Int['ING'][n] = phasesHM[0]
-                PrefPhasePr_Int['ING'][n] = 1.
-                if CircPhase:
-                    PrefPhaseC_Int['ING'][n] = phasesHMc[0]
-                    PrefPhasePrC_Int['ING'][n] = 1.
             else:
-                h, bins = histogram(phasesHM, bins=bins_vect)
-                bins = bins[:-1] + np.diff(bins)[0]/2.
-                PrefPhase_Int['ING'][n] = bins[np.argmax(h)]
-                PrefPhasePr_Int['ING'][n] = h[np.argmax(h)]/np.sum(h).astype(np.float)
-                if CircPhase:
-                    h, bins = histogram(phasesHMc, bins=bins_vectC)
-                    bins = bins[:-1] + np.diff(bins)[0]/2.
-                    PrefPhaseC_Int['ING'][n] = bins[np.argmax(h)]
-                    PrefPhasePrC_Int['ING'][n] = h[np.argmax(h)]/np.sum(h).astype(np.float)
+                PrefPhase_Int['ING'][n] = circmean(phasesHMc*(np.pi/180.))*(180./np.pi) 
                 
     MTS_Results = {'RateMTS_Pyr':MTS_Pyr,
                   'RateMTS_Int':MTS_Int,
-                  'RateMTS_Full':MTS_Full,
                   'MaxInds_Pyr':MaxInds_Pyr,
                   'MaxInds_Int':MaxInds_Int,
-                  'MaxInds_Full':MaxInds_Full,
                   'FreqMidPnt':midfreq,
                   'WinningFreq':winfreq,
                   'freq_vect':freq_vect,
                   'MTS_time':MTS_time,
                   'LowModeInds_Pyr':LowModeInds_Pyr,
                   'LowModeInds_Int':LowModeInds_Int,
-                  'LowModeInds_Full':LowModeInds_Full,
                   'HighModeInds_Pyr':HighModeInds_Pyr,
-                  'HighModeInds_Int':HighModeInds_Int,
-                  'HighModeInds_Full':HighModeInds_Full}
+                  'HighModeInds_Int':HighModeInds_Int}
     
     SpkTrains = {'SpikeTrains_Pyr':SpikeTrains_Pyr,
                  'SpikeTrains_Int':SpikeTrains_Int}
     
-    NeuronsFeats = {'NeuronFRs_Pyr':NeuronFRs_Pyr,
-                   'NeuronFRs_Int':NeuronFRs_Int,
-                   'NeuronFRsModes_Pyr':NeuronFRsModes_Pyr,
-                   'NeuronFRsModes_Int':NeuronFRsModes_Int,
-                   'IsynP_Pyr':IsynP_Pyr,
-                   'IsynI_Pyr':IsynI_Pyr,
-                   'IsynP_Int':IsynP_Int,
-                   'IsynI_Int':IsynI_Int}
+    NeuronsFeats = {'NeuronFRs_Pyr': NeuronFRs_Pyr,
+                    'NeuronFRs_Int': NeuronFRs_Int,
+                    'NeuronFRsModes_Pyr': NeuronFRsModes_Pyr,
+                    'NeuronFRsModes_Int': NeuronFRsModes_Int,
+                    'NeuronPhases_Pyr': NeuronPhases_Pyr,
+                    'NeuronPhases_Int': NeuronPhases_Int,
+                    'NeuronPreSpkIsynP_Pyr': NeuronPreSpkIsynP_Pyr,
+                    'NeuronPreSpkIsynI_Pyr': NeuronPreSpkIsynI_Pyr,
+                    'NeuronPreSpkIsynP_Int': NeuronPreSpkIsynP_Int,
+                    'NeuronPreSpkIsynI_Int': NeuronPreSpkIsynI_Int,
+                    'IsynP_Pyr': IsynPmean_Pyr,
+                    'IsynI_Pyr': IsynImean_Pyr,
+                    'IsynP_Int': IsynPmean_Int,
+                    'IsynI_Int': IsynImean_Int}
     
     if CircPhase:
-        NeuronsFeats['NeuronPhases_Pyr'] = NeuronPhasesC_Pyr
-        NeuronsFeats['NeuronPhases_Int'] = NeuronPhasesC_Int
-        NeuronsFeats['PrefPhase_Pyr'] = PrefPhaseC_Pyr
-        NeuronsFeats['PrefPhase_Int'] = PrefPhaseC_Int
-        NeuronsFeats['PrefPhasePr_Pyr'] = PrefPhasePrC_Pyr
-        NeuronsFeats['PrefPhasePr_Int'] = PrefPhasePrC_Int
-    else:
-        NeuronsFeats['NeuronPhases_Pyr'] = NeuronPhases_Pyr
-        NeuronsFeats['NeuronPhases_Int'] = NeuronPhases_Int
+        NeuronsFeats['NeuronPhasesC_Pyr'] = NeuronPhasesC_Pyr
+        NeuronsFeats['NeuronPhasesC_Int'] = NeuronPhasesC_Int
         NeuronsFeats['PrefPhase_Pyr'] = PrefPhase_Pyr
         NeuronsFeats['PrefPhase_Int'] = PrefPhase_Int
-        NeuronsFeats['PrefPhasePr_Pyr'] = PrefPhasePr_Pyr
-        NeuronsFeats['PrefPhasePr_Int'] = PrefPhasePr_Int
     
     if not save_filename is None:
         with open(save_filename, 'wb') as f:
             pickle.dump({'MTS_Results':MTS_Results,'SpkTrains':SpkTrains,'NeuronsFeats':NeuronsFeats}, f)
     
     return MTS_Results, SpkTrains, NeuronsFeats
+
+############################################################################
+
+def StackAllPhasesHists(NeuronPhases_Pyr, NeuronPhases_Int, bins_vect, groups_pyr=None, groups_int=None, N_p=4000, N_i=1000):
+    
+    if groups_pyr is None:
+        groups_pyr=[range(N_p)]
+        
+    NeuronPhasesHists_Pyr = {'ING': np.zeros([N_p, len(bins_vect)-1]), 'PING': np.zeros([N_p, len(bins_vect)-1])}
+
+    for gi,group in enumerate(groups_pyr):
+        for ni in range(len(group)):
+
+            if gi>0:
+                nind = ni+gi*len(groups_pyr[gi-1])
+            else:
+                nind = ni
+
+            h,bins = histogram(NeuronPhases_Pyr['ING'][group[ni]], bins_vect)
+            NeuronPhasesHists_Pyr['ING'][nind,:] = h/np.sum(h).astype(np.float)
+
+            h,bins = histogram(NeuronPhases_Pyr['PING'][group[ni]], bins_vect)
+            NeuronPhasesHists_Pyr['PING'][nind,:] = h/np.sum(h).astype(np.float)
+
+    if groups_int is None:
+        groups_int=[range(N_i)]
+        
+    NeuronPhasesHists_Int = {'ING': np.zeros([N_i, len(bins_vect)-1]), 'PING': np.zeros([N_i, len(bins_vect)-1])}
+
+    for gi,group in enumerate(groups_int):
+        for ni in range(len(group)):
+
+            if gi>0:
+                nind = ni+gi*len(groups_int[gi-1])
+            else:
+                nind = ni
+
+            h,bins = histogram(NeuronPhases_Int['ING'][group[ni]], bins_vect)
+            NeuronPhasesHists_Int['ING'][nind,:] = h/np.sum(h).astype(np.float)
+
+            h,bins = histogram(NeuronPhases_Int['PING'][group[ni]], bins_vect)
+            NeuronPhasesHists_Int['PING'][nind,:] = h/np.sum(h).astype(np.float)
+                
+    return NeuronPhasesHists_Pyr, NeuronPhasesHists_Int
+    

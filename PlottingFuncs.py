@@ -824,3 +824,75 @@ def plot_spcgram_grid(rawfile, mode, start_time=None, end_time=None, W=2**12, ws
         savefig(out_file+'_Int.png')
     
     show()
+    
+#####################################################################################
+
+
+def draw_freqresp(Spectrums, forcingfreqs, allforcingamps, freq_vect, forcingamps=None, savef=None):
+
+    if forcingamps is None:
+        forcingamps = allforcingamps
+    
+    figure(figsize=[5*len(forcingamps),5])
+    
+    synchmaps = []
+    for ampi,forcingamp in enumerate(forcingamps):
+        synchmap = np.zeros([Spectrums[0].shape[0], len(forcingfreqs)])
+        for fri,forcingf in enumerate(forcingfreqs):
+            ampidx = np.argwhere(allforcingamps==forcingamp)[0][0]
+            idx = ampidx*len(forcingfreqs)+fri
+            Spectrum_normed = Spectrums[idx]/np.sum(Spectrums[idx])
+            synchmap[:,fri] = Spectrum_normed
+    
+        subplot(1,len(forcingamps),ampi+1)
+        imshow(synchmap, origin="lower", extent=[forcingfreqs[0], forcingfreqs[-1], freq_vect[0], freq_vect[-1]], aspect="auto", cmap='jet')
+        xlabel('Forcing Freqs [Hz]')
+        ylabel('Resulting Freqs [Hz]')
+        title('Entrainment to poiss. amp. %d kHz' %(forcingamp))
+
+        synchmaps.append(synchmap)
+    
+    if not savef is None:
+        savefig(savef)
+    show()
+    
+    return synchmaps
+
+#####################################################################################
+
+
+def draw_arnold2D(Spectrums, forcingfreqs, allforcingamps, freq_vect, forcingamps=None, savef=None):
+
+    if forcingamps is None:
+        forcingamps = allforcingamps
+    
+    arnoldmap = np.zeros([len(forcingamps), len(forcingfreqs)])
+    arnoldcmap = np.zeros([len(forcingamps), len(forcingfreqs)])
+    for ampi,forcingamp in enumerate(forcingamps):
+        for fri,forcingf in enumerate(forcingfreqs):
+            freqind = np.argmin(abs(forcingf-freq_vect))
+            ampidx = np.argwhere(allforcingamps==forcingamp)[0][0]
+            idx = ampidx*len(forcingfreqs)+fri
+            Spectrum_normed = Spectrums[idx]/np.sum(Spectrums[idx])
+            arnoldmap[ampi,fri] = Spectrum_normed[freqind]
+            peakfreqind = np.argmax(Spectrum_normed)
+            arnoldcmap[ampi,fri] = freq_vect[peakfreqind]
+    
+    figure(figsize=[10,5])
+    subplot(121)
+    imshow(arnoldmap, origin="lower", extent=[forcingfreqs[0], forcingfreqs[-1], forcingamps[0], forcingamps[-1]], aspect="auto", cmap='jet')
+    xlabel('Forcing Freqs [Hz]')
+    ylabel('Forcing Poiss. Amp. [kHz]')
+    title('Arnold map')
+    subplot(122)
+    imshow(arnoldcmap, origin="lower", extent=[forcingfreqs[0], forcingfreqs[-1], forcingamps[0], forcingamps[-1]], aspect="auto", cmap='jet')
+    xlabel('Forcing Freqs [Hz]')
+    ylabel('Forcing Poiss. Amp. [kHz]')
+    title('Peak freq. map')
+    colorbar()
+    
+    if not savef is None:
+        savefig(savef)
+    show()
+    
+    return arnoldmap, arnoldcmap

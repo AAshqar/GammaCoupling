@@ -2,7 +2,12 @@ from spectrum import pmtm
 import numpy as np
 import matplotlib.pyplot as plt
 
-def comp_mtspectrogram(Signal, fs, W=2**13, ws=None, NFFT=None, freq_limit=None, freq_lowerlimit=None, unbias=True, NW=2.5, avgspectrum=False, movingW=False, PlotFlag=True):
+def comp_mtspectrogram(Signal, fs, W=2**13, ws=None, NFFT=None, freq_limit=None, freq_lowerlimit=None, unbias=True, NW=2.5, avgspectrum=False, movingW=False, PlotFlag=True, start_time=None, end_time=None):
+    
+    if start_time is not None:
+        Signal = Signal[int(fs*start_time):]
+    if end_time is not None:
+        Signal = Signal[:int(fs*end_time)]
     
     N = int(len(Signal))
     T = (N/fs)*1000.
